@@ -2,7 +2,7 @@ name: Build frp for armv5tel
 
 on:
   release:
-    types: [ published ]
+    types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -11,7 +11,6 @@ on:
         default: 'test'
 permissions:
   contents: read
-
 
 jobs:
   build:
@@ -30,7 +29,7 @@ jobs:
     - name: Create Dockerfile for ARM
       run: |
         echo '
-        FROM golang:1.21 AS build
+        FROM golang:1.20 AS build
 
         ENV GOARCH=arm
         ENV GOARM=5
@@ -51,14 +50,13 @@ jobs:
 
     - name: Build Docker image for ARM
       run: |
-        docker buildx create --use
-        docker buildx build --platform linux/arm/v5 --tag frp-arm -f Dockerfile.arm .
+        docker buildx use mybuilder || docker buildx create --use --name mybuilder
+        docker buildx build --platform linux/arm/v5 --tag frp-arm:${{ github.event.inputs.tag }} -f Dockerfile.arm --push .
 
     - name: Run tests
       run: |
-        docker run --rm frp-arm make gotest
+        docker run --rm frp-arm:${{ github.event.inputs.tag }} make gotest
 
     - name: Clean up
       run: |
         docker system prune -f
-
