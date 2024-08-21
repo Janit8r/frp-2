@@ -30,7 +30,7 @@ jobs:
     - name: Create Dockerfile for ARM
       run: |
         echo '
-        FROM golang:1.22 AS build
+        FROM golang:1.21 AS build
 
         ENV GOARCH=arm
         ENV GOARM=5
