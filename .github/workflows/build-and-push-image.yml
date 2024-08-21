@@ -20,11 +20,12 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
+      with:
+        repository: fatedier/frp
+        ref: dev  # 确保这个分支存在，或者使用合适的分支名
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
-      with:
-        version: latest
 
     - name: Create Dockerfile for ARM
       run: |
@@ -51,14 +52,13 @@ jobs:
     - name: Build Docker image for ARM
       run: |
         docker buildx create --use
-        docker buildx build --platform linux/arm/v5 --tag frp-arm --file Dockerfile.arm .
+        docker buildx build --platform linux/arm/v5 --tag frp-arm -f Dockerfile.arm .
 
-    - name: Run tests inside Docker container
+    - name: Run tests
       run: |
         docker run --rm frp-arm make gotest
 
     - name: Clean up
       run: |
         docker system prune -f
-
 
