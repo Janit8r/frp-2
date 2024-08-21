@@ -20,20 +20,16 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
-      with:
-        repository: fatedier/frp
-        ref: dev # 可以指定分支或标签
 
-    - name: Set up Docker for ARM cross-compilation
+    - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
       with:
         version: latest
 
-    - name: Build FRP for ARM
+    - name: Create Dockerfile for ARM
       run: |
-        # Create a Dockerfile on-the-fly
         echo '
-        FROM golang:1.20 AS build
+        FROM golang:1.22 AS build
 
         ENV GOARCH=arm
         ENV GOARM=5
@@ -52,13 +48,13 @@ jobs:
         ENTRYPOINT ["/frps"]
         ' > Dockerfile.arm
 
-        # Build the Docker image for ARM
-        docker buildx create --use
-        docker buildx build --platform linux/arm/v5 --tag frp-arm -f Dockerfile.arm .
-
-    - name: Run tests
+    - name: Build Docker image for ARM
       run: |
-        # Example of running tests within the Docker container
+        docker buildx create --use
+        docker buildx build --platform linux/arm/v5 --tag frp-arm --file Dockerfile.arm .
+
+    - name: Run tests inside Docker container
+      run: |
         docker run --rm frp-arm make gotest
 
     - name: Clean up
