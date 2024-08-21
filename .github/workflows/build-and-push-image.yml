@@ -22,7 +22,7 @@ jobs:
       uses: actions/checkout@v3
       with:
         repository: fatedier/frp
-        ref: main # 可以指定分支或标签
+        ref: dev # 可以指定分支或标签
 
     - name: Set up Docker for ARM cross-compilation
       uses: docker/setup-buildx-action@v2
