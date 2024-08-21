@@ -1,12 +1,16 @@
 name: Build frp for armv5tel
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  release:
+    types: [ published ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag'
+        required: true
+        default: 'test'
+permissions:
+  contents: read
 
 jobs:
   build:
