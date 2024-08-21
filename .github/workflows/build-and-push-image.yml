@@ -7,8 +7,9 @@ on:
     inputs:
       tag:
         description: 'Image tag'
-        required: true
-        default: 'test'
+        required: false
+        default: 'test'  # 默认值为 'test'
+
 permissions:
   contents: read
 
@@ -51,7 +52,7 @@ jobs:
     - name: Build Docker image for ARM
       run: |
         docker buildx create --use
-        docker buildx build --platform linux/arm/v5 --tag frp-arm:${{ github.event.inputs.tag }} -f Dockerfile.arm --push .
+        docker buildx build --platform linux/arm/v5 --tag frp-arm:${{ github.event.inputs.tag }} -f Dockerfile.arm --load .
 
     - name: Run tests
       run: |
