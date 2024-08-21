@@ -57,9 +57,9 @@ jobs:
         docker buildx create --use
         docker buildx build --platform linux/arm/v5 --tag frp-arm:${{ github.event.inputs.tag }} -f Dockerfile.arm --load .
 
-    - name: Run tests using QEMU for ARM
+    - name: Run tests in build container
       run: |
-        docker run --rm --platform linux/arm/v5 frp-arm:${{ github.event.inputs.tag }} make gotest
+        docker run --rm --platform linux/amd64 -v ${{ github.workspace }}:/app -w /app golang:1.20 make gotest
 
     - name: Clean up
       run: |
