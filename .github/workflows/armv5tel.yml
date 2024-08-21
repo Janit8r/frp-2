@@ -1,0 +1,81 @@
+name: Build frp for armv5tel v2 
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag'
+        required: false
+        default: 'test'  # 默认的标签值
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        repository: fatedier/frp
+        ref: v0.54.0  # 确保这个分支存在，或使用适当的分支名
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Set up QEMU for cross-platform builds
+      uses: docker/setup-qemu-action@v2
+
+    - name: Create Dockerfile for ARM
+      run: |
+        echo '
+        FROM golang:1.20 AS build
+
+        ENV GOARCH=arm
+        ENV GOARM=5
+        ENV CGO_ENABLED=0
+
+        WORKDIR /app
+        COPY . .
+
+        RUN go mod download
+        RUN make
+
+        FROM scratch
+        COPY --from=build /app/bin/frps /frps
+        COPY --from=build /app/bin/frpc /frpc
+
+        ENTRYPOINT ["/frps"]
+        ' > Dockerfile.arm
+
+    - name: Build Docker image for ARM
+      run: |
+        docker buildx create --use
+        docker buildx build --platform linux/arm/v5 --tag frp-arm:${{ github.event.inputs.tag }} -f Dockerfile.arm --load .
+
+    - name: Run tests in build container
+      run: |
+        docker run --rm --platform linux/amd64 -v ${{ github.workspace }}:/app -w /app golang:1.20 make gotest
+
+    - name: Upload compiled binaries
+      run: |
+        docker create --name extract frp-arm:${{ github.event.inputs.tag }}
+        docker cp extract:/frps ./frps
+        docker cp extract:/frpc ./frpc
+        docker rm extract
+
+    - name: Upload binaries as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: frp-binaries
+        path: |
+          ./frps
+          ./frpc
+
+    - name: Clean up
+      run: |
+        docker system prune -f
