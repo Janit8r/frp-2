@@ -29,6 +29,7 @@ jobs:
     - name: Compile yuze
       run: |
         cd yuze
+        ls -al
         arm-linux-gnueabi-gcc -o yuze *.c
 
     - name: Upload artifact
