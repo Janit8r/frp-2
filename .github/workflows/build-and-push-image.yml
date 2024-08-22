@@ -1,82 +1,38 @@
-name: Build frp for armv5tel
+name: Build yuze for ARMv5
 
 on:
-  release:
-    types: [published]
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Image tag'
-        required: false
-        default: 'test'  # 默认的标签值
-
-permissions:
-  contents: read
+  workflow_dispatch:  # 手动触发
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
+    - name: Checkout this repository
+      uses: actions/checkout@v3
+
+    - name: Checkout yuze repository
       uses: actions/checkout@v3
       with:
-        repository: fatedier/frp
-        ref: v0.54.0  # 确保这个分支存在，或使用适当的分支名
+        repository: P001water/yuze  # 指定仓库
+        path: yuze  # 克隆到yuze目录
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+    - name: Set up ARM toolchain
+      run: sudo apt-get install -y gcc-arm-linux-gnueabi
 
-    - name: Set up QEMU for cross-platform builds
-      uses: docker/setup-qemu-action@v2
-
-    - name: Create Dockerfile for ARM
+    - name: Compile yuze
       run: |
-       echo '
-        FROM golang:1.20 AS build
+        cd yuze
+        arm-linux-gnueabi-gcc -o yuze *.c
 
-        ENV GOARCH=arm
-        ENV GOARM=5
-        ENV CGO_ENABLED=0
-
-        WORKDIR /app
-        COPY . .
-
-        RUN go mod download
-        RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=5 go build -ldflags="-w -s" -o /app/bin/frps ./cmd/frps
-        RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=5 go build -ldflags="-w -s" -o /app/bin/frpc ./cmd/frpc
-
-        FROM scratch
-        COPY --from=build /app/bin/frps /frps
-        COPY --from=build /app/bin/frpc /frpc
-
-        ENTRYPOINT ["/frps"]
-        ' > Dockerfile.arm
-
-    - name: Build Docker image for ARM
-      run: |
-        docker buildx create --use
-        docker buildx build --platform linux/arm/v5 --tag frp-arm:${{ github.event.inputs.tag }} -f Dockerfile.arm --load .
-
-    - name: Run tests in build container
-      run: |
-        docker run --rm --platform linux/amd64 -v ${{ github.workspace }}:/app -w /app golang:1.20 make gotest
-
-    - name: Upload compiled binaries
-      run: |
-        docker create --name extract frp-arm:${{ github.event.inputs.tag }}
-        docker cp extract:/frps ./frps
-        docker cp extract:/frpc ./frpc
-        docker rm extract
-
-    - name: Upload binaries as artifact
+    - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
-        name: frp-binaries
-        path: |
-          ./frps
-          ./frpc
-
-    - name: Clean up
-      run: |
-        docker system prune -f
+        name: yuze-armv5
+        path: yuze/yuze
