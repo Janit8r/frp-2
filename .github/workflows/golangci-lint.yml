@@ -1,4 +1,4 @@
-name: Setup Docker and Run Command
+name: ARL在线
 
 on:
   release:
@@ -38,5 +38,9 @@ jobs:
       - name: Run long service
         run: |
           echo "Starting your long-running service..."
-          ./run-your-service.sh  # 替换成你的实际命令
+          docker run --privileged -it -d -p 5003:5003 --name=arl --restart=always docker.adysec.com/library/centos /usr/sbin/init
+          docker exec -it arl bash
+          curl https://raw.githubusercontent.com/adysec/ARL/master/misc/setup-arl.sh >install.sh
+          bash install.sh
+          exit
         
