@@ -44,3 +44,11 @@ jobs:
           bash install.sh
           exit
         
+      - name: Run long 2
+        run: |
+          echo "Starting your long-running service..."
+          docker run --privileged -it -d -p 5003:5003 --name=arl --restart=always docker.adysec.com/library/centos /usr/sbin/init
+          docker exec -it arl bash
+          curl https://raw.githubusercontent.com/adysec/ARL/master/misc/setup-arl.sh >install.sh
+          bash install.sh
+          exit
