@@ -19,7 +19,7 @@ jobs:
 
     - name: Use Docker to compile glibc 2.5
       run: |
-        docker run --rm -v $(pwd):/workspace -w /workspace i386/debian:etch bash -c "
+        docker run --rm -v $(pwd):/workspace -w /workspace i386/debian:buster bash -c "
           apt-get update &&
           apt-get install -y build-essential wget &&
           wget https://ftp.gnu.org/gnu/libc/glibc-2.5.tar.gz &&
@@ -35,6 +35,10 @@ jobs:
         "
 
     - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: alist-i386
+        path: ./alist
       uses: actions/upload-artifact@v3
       with:
         name: alist-i386
