@@ -1,30 +1,58 @@
-name: goreleaser
+name: Build Alist with i386 glibc 2.5
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
-  goreleaser:
+  build:
     runs-on: ubuntu-latest
+
+    env:
+      GLIBC_VERSION: "2.5"
+      INSTALL_DIR: "/opt/glibc-2.5"
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    - name: Checkout the repository
+      uses: actions/checkout@v3
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-          
-      - name: Make All
-        run: |
-          ./package.sh
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-multilib g++-multilib libc6-dev-i386
 
-      - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v5
-        with:
-          version: latest
-          args: release --clean --release-notes=./Release.md
-        env:
-          GITHUB_TOKEN: ${{ secrets.GPR_TOKEN }}
+    - name: Download and extract glibc
+      run: |
+        wget https://ftp.gnu.org/gnu/libc/glibc-$GLIBC_VERSION.tar.gz
+        tar -xzf glibc-$GLIBC_VERSION.tar.gz
+
+    - name: Compile and install glibc
+      run: |
+        mkdir glibc-$GLIBC_VERSION/build
+        cd glibc-$GLIBC_VERSION/build
+        ../configure --prefix=$INSTALL_DIR --host=i686-pc-linux-gnu --enable-add-ons
+        make -j$(nproc)
+        sudo make install
+
+    - name: Set up i386 environment
+      run: |
+        export PATH="$INSTALL_DIR/bin:$PATH"
+        export LD_LIBRARY_PATH="$INSTALL_DIR/lib:$LD_LIBRARY_PATH"
+
+    - name: Build Alist
+      run: |
+        # Set up Go environment for i386
+        sudo dpkg --add-architecture i386
+        sudo apt-get update
+        sudo apt-get install -y gcc:i386 g++:i386 libc6-dev-i386
+        
+        # Build Alist with i386
+        GOARCH=386 go build -o alist
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: alist-i386
+        path: ./alist
