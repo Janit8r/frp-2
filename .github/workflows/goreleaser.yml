@@ -17,7 +17,7 @@ jobs:
     - name: Checkout the repository
       uses: actions/checkout@v3
 
-    - name: Use Docker to compile glibc 2.5
+    - name: Use Docker to compile glibc 2.5 and build Alist
       run: |
         docker run --rm -v $(pwd):/workspace -w /workspace i386/debian:buster bash -c "
           apt-get update &&
@@ -35,10 +35,6 @@ jobs:
         "
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: alist-i386
-        path: ./alist
       uses: actions/upload-artifact@v3
       with:
         name: alist-i386
