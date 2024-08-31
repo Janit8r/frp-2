@@ -17,13 +17,7 @@ jobs:
   long-running-service:
     runs-on: ubuntu-latest
 
-    env:
-      SERVER_ADDR: ${{ env.SERVER_ADDR }}
-      SERVER_PORT: ${{ env.SERVER_PORT }}
-      AUTH_TOKEN: ${{  env.AUTH_TOKEN }}
-
     steps:
-
 
       - name: Run long service
         run: |
@@ -38,29 +32,6 @@ jobs:
           sudo mv frp_0.60.0_linux_amd64/frpc ./frpc
           sudo chmod +x ./frpc
 
-      # Run frpc
-      - name: Run frpc
-        run: |
-          echo "Starting your frp service..."
-          
-          cat <<EOF > ./frpc.toml
-          transport.tls.enable = true
-          serverAddr = "$SERVER_ADDR"
-          serverPort = $SERVER_PORT
-
-          auth.token = "$AUTH_TOKEN"
-
-          [[proxies]]
-          name = "ARL在线"
-          type = "tcp"
-          localIP = "127.0.0.1"
-          localPort = 5003
-          remotePort = 6060
-          EOF
-
-          sudo ./frpc -c ./frpc.toml
-
-          exit
       # Checkout your code
       - name: Checkout code
         uses: actions/checkout@v3
