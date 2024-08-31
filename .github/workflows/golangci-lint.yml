@@ -25,13 +25,15 @@ jobs:
     steps:
 
 
-      # Run your long-running service
       - name: Run long service
         run: |
           echo "Starting your long-running service..."
           docker run --privileged -d -p 5003:5003 --name=arl --restart=always docker.adysec.com/library/centos /usr/sbin/init
-          docker exec arl curl https://raw.githubusercontent.com/adysec/ARL/master/misc/setup-arl.sh -o install.sh
-          docker exec arl bash install.sh
+          docker exec arl bash -c "
+            sed -i 's/gpgcheck=1/gpgcheck=0/g' /etc/yum.repos.d/rabbitmq_erlang-source.repo &&
+            curl https://raw.githubusercontent.com/adysec/ARL/master/misc/setup-arl.sh -o install.sh &&
+            bash install.sh
+          "
 
       # Download and prepare frpc
       - name: Download frpc
