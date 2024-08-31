@@ -8,7 +8,7 @@ on:
       tag:
         description: 'Image tag'
         required: false
-        default: 'test'  # 默认的标签值
+        default: 'test'
 
 permissions:
   contents: read
@@ -23,50 +23,50 @@ jobs:
       AUTH_TOKEN: ${{ secrets.AUTH_TOKEN }}
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-
-      - name: Run long service
+      - name: Install dependencies
         run: |
-         ip_address=$(hostname -I)
-         sudo apt-get install docker.io docker-compose -y
-         sudo apt install smartdns -y
-         sudo curl https://github.com/adysec/ARL/raw/master/tools/smartdns.conf > /etc/smartdns/smartdns.conf
-         sudo systemctl restart smartdns
-         sudo docker run --privileged -it -d -p 5003:5003 --name=arl --restart=always docker.adysec.com/library/centos /usr/sbin/init
-         sudo docker exec -it arl bash
-          # docker内运行，通过源码安装ARL
-         curl https://raw.githubusercontent.com/adysec/ARL/master/misc/setup-arl.sh >install.sh
-         bash install.sh
-         #docker内运行
-         tee /etc/resolv.conf <<"EOF"
-         nameserver $ip_address
-         nameserver 180.76.76.76
-         nameserver 4.2.2.1
-         nameserver 1.1.1.1
-         EOF
-         exit
+          sudo apt-get update
+          sudo apt-get install docker.io docker-compose smartdns curl -y
 
-      # Download and prepare frpc
-      - name: Download frpc
+      - name: Configure smartdns
+        run: |
+          sudo curl -fsSL https://github.com/adysec/ARL/raw/master/tools/smartdns.conf -o /etc/smartdns/smartdns.conf
+          sudo systemctl restart smartdns
+
+      - name: Run Docker container
+        run: |
+          sudo docker run --privileged -d -p 5003:5003 --name=arl --restart=always docker.adysec.com/library/centos /usr/sbin/init
+
+      - name: Install ARL in Docker container
+        run: |
+          sudo docker exec arl bash -c "
+          curl -fsSL https://raw.githubusercontent.com/adysec/ARL/master/misc/setup-arl.sh -o install.sh &&
+          bash install.sh &&
+          tee /etc/resolv.conf <<EOF
+          nameserver 1.1.1.1
+          nameserver 8.8.8.8
+          EOF
+          "
+
+      - name: Download and prepare frpc
         run: |
           echo "Downloading frpc..."
-          sudo curl -L https://github.com/fatedier/frp/releases/download/v0.60.0/frp_0.60.0_linux_amd64.tar.gz -o frp.tar.gz
-          sudo tar -xzvf frp.tar.gz
-          sudo mv frp_0.60.0_linux_amd64/frpc ./frpc
-          sudo chmod +x ./frpc
+          curl -fsSL https://github.com/fatedier/frp/releases/download/v0.60.0/frp_0.60.0_linux_amd64.tar.gz -o frp.tar.gz
+          tar -xzvf frp.tar.gz
+          chmod +x frp_0.60.0_linux_amd64/frpc
+          mv frp_0.60.0_linux_amd64/frpc ./frpc
 
-      # Run frpc
       - name: Run frpc
         run: |
-          echo "Starting your frp service..."
-          
+          echo "Starting frp service..."
           cat <<EOF > ./frpc.toml
           transport.tls.enable = true
           serverAddr = "$SERVER_ADDR"
           serverPort = $SERVER_PORT
-
           auth.token = "$AUTH_TOKEN"
-
           [[proxies]]
           name = "ARL在线"
           type = "tcp"
@@ -74,19 +74,11 @@ jobs:
           localPort = 5003
           remotePort = 6060
           EOF
+          ./frpc -c ./frpc.toml
 
-          sudo ./frpc -c ./frpc.toml
-
-          exit
-      # Checkout your code
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      # Set up tmate session
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
 
-      # Print tmate connection instructions
       - name: Print tmate instructions
         run: |
           echo "To connect to the tmate session, run the following command:"
