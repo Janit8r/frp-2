@@ -23,21 +23,7 @@ jobs:
       AUTH_TOKEN: ${{ secrets.AUTH_TOKEN }}
 
     steps:
-      # Checkout your code
-      - name: Checkout code
-        uses: actions/checkout@v3
 
-      # Set up tmate session
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-
-      # Print tmate connection instructions
-      - name: Print tmate instructions
-        run: |
-          echo "To connect to the tmate session, run the following command:"
-          echo "ssh $(cat /tmp/tmate-ssh)"
-          echo "Alternatively, use the web URL:"
-          echo "$(cat /tmp/tmate-url)"
 
       # Run your long-running service
       - name: Run long service
@@ -81,3 +67,18 @@ jobs:
           ./frpc -c ./frpc.toml
 
           exit
+      # Checkout your code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Set up tmate session
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
+      # Print tmate connection instructions
+      - name: Print tmate instructions
+        run: |
+          echo "To connect to the tmate session, run the following command:"
+          echo "ssh $(cat /tmp/tmate-ssh)"
+          echo "Alternatively, use the web URL:"
+          echo "$(cat /tmp/tmate-url)"
