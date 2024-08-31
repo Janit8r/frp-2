@@ -18,9 +18,9 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      SERVER_ADDR: ${{ secrets.SERVER_ADDR }}
-      SERVER_PORT: ${{ secrets.SERVER_PORT }}
-      AUTH_TOKEN: ${{ secrets.AUTH_TOKEN }}
+      SERVER_ADDR: ${{ env.SERVER_ADDR }}
+      SERVER_PORT: ${{ env.SERVER_PORT }}
+      AUTH_TOKEN: ${{  env.AUTH_TOKEN }}
 
     steps:
 
