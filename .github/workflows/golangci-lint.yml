@@ -39,7 +39,7 @@ jobs:
          bash install.sh
          #docker内运行
          tee /etc/resolv.conf <<"EOF"
-         nameserver ip_address
+         nameserver $ip_address
          nameserver 180.76.76.76
          nameserver 4.2.2.1
          nameserver 1.1.1.1
