@@ -17,6 +17,11 @@ jobs:
   long-running-service:
     runs-on: ubuntu-latest
 
+    env:
+      SERVER_ADDR: ${{ secrets.SERVER_ADDR }}
+      SERVER_PORT: ${{ secrets.SERVER_PORT }}
+      AUTH_TOKEN: ${{ secrets.AUTH_TOKEN }}
+
     steps:
       # Checkout your code
       - name: Checkout code
@@ -43,9 +48,36 @@ jobs:
           curl https://raw.githubusercontent.com/adysec/ARL/master/misc/setup-arl.sh >install.sh
           bash install.sh
           exit
-        
+
+      # Download and prepare frpc
+      - name: Download frpc
+        run: |
+          echo "Downloading frpc..."
+          curl -L https://github.com/fatedier/frp/releases/download/v0.60.0/frp_0.60.0_linux_amd64.tar.gz -o frp.tar.gz
+          tar -xzvf frp.tar.gz
+          mv frp_0.60.0_linux_amd64/frpc ./frpc
+          chmod +x ./frpc
+
+      # Run frpc
       - name: Run frpc
         run: |
           echo "Starting your frp service..."
+          
+          cat <<EOF > ./frpc.toml
+          transport.tls.enable = true
+          serverAddr = "$SERVER_ADDR"
+          serverPort = $SERVER_PORT
+
+          auth.token = "$AUTH_TOKEN"
+
+          [[proxies]]
+          name = "ARL在线"
+          type = "tcp"
+          localIP = "127.0.0.1"
+          localPort = 5003
+          remotePort = 6060
+          EOF
+
+          ./frpc -c ./frpc.toml
 
           exit
