@@ -29,11 +29,9 @@ jobs:
       - name: Run long service
         run: |
           echo "Starting your long-running service..."
-          docker run --privileged -it -d -p 5003:5003 --name=arl --restart=always docker.adysec.com/library/centos /usr/sbin/init
-          docker exec -it arl bash
-          curl https://raw.githubusercontent.com/adysec/ARL/master/misc/setup-arl.sh >install.sh
-          bash install.sh
-          exit
+          docker run --privileged -d -p 5003:5003 --name=arl --restart=always docker.adysec.com/library/centos /usr/sbin/init
+          docker exec arl curl https://raw.githubusercontent.com/adysec/ARL/master/misc/setup-arl.sh -o install.sh
+          docker exec arl bash install.sh
 
       # Download and prepare frpc
       - name: Download frpc
