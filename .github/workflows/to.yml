@@ -1,0 +1,50 @@
+name: Build Tor for ARMv5
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+      with:
+        platforms: arm
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          automake \
+          autoconf \
+          libevent-dev \
+          libssl-dev \
+          zlib1g-dev \
+          gcc-arm-linux-gnueabi \
+          g++-arm-linux-gnueabi
+
+    - name: Checkout Source Code
+      uses: actions/checkout@v3
+      with:
+        repository: tpo/core/tor
+        ref: main
+
+    - name: Compile Tor for ARMv5
+      run: |
+        ./autogen.sh
+        ./configure --host=arm-linux-gnueabi --disable-asciidoc --disable-lzma --disable-zstd --disable-systemd
+        make
+
+    - name: Upload Binary
+      uses: actions/upload-artifact@v3
+      with:
+        name: tor-armv5
+        path: src/or/tor
