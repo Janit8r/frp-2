@@ -1,12 +1,14 @@
 name: Build Tor for ARMv5
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag'
+        required: false
+        default: 'test'  # 默认的标签值
 
 jobs:
   build:
