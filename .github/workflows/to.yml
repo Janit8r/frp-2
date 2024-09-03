@@ -38,7 +38,7 @@ jobs:
       run: |
         git clone https://gitlab.torproject.org/tpo/core/tor.git
         cd tor
-        git checkout master
+        git checkout main
 
     - name: Compile Tor for ARMv5
       run: |
