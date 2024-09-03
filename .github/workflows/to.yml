@@ -31,16 +31,18 @@ jobs:
           libssl-dev \
           zlib1g-dev \
           gcc-arm-linux-gnueabi \
-          g++-arm-linux-gnueabi
+          g++-arm-linux-gnueabi \
+          git
 
-    - name: Checkout Source Code
-      uses: actions/checkout@v3
-      with:
-        repository: tpo/core/tor
-        ref: main
+    - name: Clone Tor Repository
+      run: |
+        git clone https://gitlab.torproject.org/tpo/core/tor.git
+        cd tor
+        git checkout master
 
     - name: Compile Tor for ARMv5
       run: |
+        cd tor
         ./autogen.sh
         ./configure --host=arm-linux-gnueabi --disable-asciidoc --disable-lzma --disable-zstd --disable-systemd
         make
@@ -49,4 +51,4 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: tor-armv5
-        path: src/or/tor
+        path: tor/src/or/tor
