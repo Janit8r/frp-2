@@ -30,7 +30,7 @@ jobs:
 
       - name: Download Android NDK
         run: |
-          NDK_VERSION="21.3.6528147"  # Specify the NDK version you want to use
+          NDK_VERSION="23.1.7779629"  # Specify the NDK version you want to use
           wget https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux-x86_64.zip
           unzip android-ndk-${NDK_VERSION}-linux-x86_64.zip
           echo "ANDROID_NDK_HOME=$(pwd)/android-ndk-${NDK_VERSION}" >> $GITHUB_ENV
