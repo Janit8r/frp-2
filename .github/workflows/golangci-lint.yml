@@ -30,9 +30,9 @@ jobs:
 
       - name: Download Android NDK
         run: |
-          NDK_VERSION="r27"  # https://dl.google.com/android/repository/platform-tools-latest-windows.zip?hl=ko
-          wget https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux-x86_64.zip
-          unzip android-ndk-${NDK_VERSION}-linux-x86_64.zip
+          NDK_VERSION="r27"  # Specify the NDK version you want to use
+          wget https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip
+          unzip android-ndk-${NDK_VERSION}-linux.zip
           echo "ANDROID_NDK_HOME=$(pwd)/android-ndk-${NDK_VERSION}" >> $GITHUB_ENV
 
       - name: Configure CMake
@@ -43,7 +43,7 @@ jobs:
           cmake .. \
             -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=${{ matrix.arch }} \
-            -DANDROID_PLATFORM=android-27
+            -DANDROID_PLATFORM=android-21
 
       - name: Build TestForMyCode
         run: |
