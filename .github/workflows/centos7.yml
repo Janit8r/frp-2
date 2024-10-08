@@ -23,6 +23,15 @@ jobs:
       - name: Install Dependencies in CentOS 5
         run: |
           docker exec centos5-build bash -c "
+            # 配置有效的 YUM 源
+            echo '[base]' > /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'name=CentOS-5 - Base' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'baseurl=http://vault.centos.org/5.11/os/x86_64/' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'gpgcheck=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'enabled=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'gpgkey=http://vault.centos.org/RPM-GPG-KEY-centos5' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            # 安装依赖
+            yum clean all &&
             yum install -y epel-release &&
             yum install -y curl unzip git gcc gcc-c++ make automake libtool autoconf
           "
