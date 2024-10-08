@@ -44,7 +44,7 @@ jobs:
             name=CentOS SCLo scl
             baseurl=https://mirrors.aliyun.com/centos/7/sclo/x86_64/scl/
             enabled=1
-            gpgcheck=0' > /etc/yum.repos.d/CentOS-SCLo-scl.repo &&
+            gpgcheck=0' > /etc/yum.repos.d/CentOS-SCLo-scl.repo
             # 清除缓存并安装依赖
             yum clean all &&
             yum makecache &&
