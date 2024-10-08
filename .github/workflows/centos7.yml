@@ -34,7 +34,7 @@ jobs:
           docker exec centos7-build bash -c "
             # 安装依赖
             yum install -y epel-release &&
-            yum install -y curl unzip git gcc gcc-c++ make automake cmake libtool autoconf
+            yum install -y curl unzip git gcc gcc-c++ make automake cmake libtool autoconf wget
           "
 
       - name: Copy Source Code to CentOS 7 Container
