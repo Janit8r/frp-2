@@ -8,25 +8,30 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-      # Step 1: Download and extract the source code using curl
-      - name: Download testformycode source
+      # Step 1: Install Python
+      - name: Install Python
         run: |
           sudo apt update
+          sudo apt install -y python3 python3-pip
+
+      # Step 2: Download and extract the source code using curl
+      - name: Download testformycode source
+        run: |
           sudo apt install -y curl unzip
           curl -L -o testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip
           unzip testformycode.zip -d $GITHUB_WORKSPACE
 
-      # Step 2: Download Android NDK using curl
+      # Step 3: Download Android NDK version 23b using curl
       - name: Download Android NDK
         run: |
           curl -L -o android-ndk-r23b-linux.zip https://dl.google.com/android/repository/android-ndk-r23b-linux.zip
           unzip android-ndk-r23b-linux.zip
           export ANDROID_NDK=$GITHUB_WORKSPACE/android-ndk-r23b
 
-      # Step 3: Set up NDK toolchain for ARMv7
+      # Step 4: Set up NDK toolchain for ARMv7
       - name: Configure NDK toolchain
         run: |
-          $ANDROID_NDK/build/tools/make_standalone_toolchain.py \
+          python3 $ANDROID_NDK/build/tools/make_standalone_toolchain.py \
             --arch arm --api 21 --install-dir $GITHUB_WORKSPACE/android-toolchain
           export PATH=$GITHUB_WORKSPACE/android-toolchain/bin:$PATH
           export CC=arm-linux-androideabi-gcc
@@ -34,12 +39,12 @@ jobs:
           export AR=arm-linux-androideabi-ar
           export LD=arm-linux-androideabi-ld
 
-      # Step 4: Install dependencies for building (if required by the project)
+      # Step 5: Install dependencies for building (if required by the project)
       - name: Install dependencies
         run: |
           sudo apt-get install -y libssl-dev cmake
 
-      # Step 5: Configure CMake for static linking and ARMv7 cross-compilation
+      # Step 6: Configure CMake for static linking and ARMv7 cross-compilation
       - name: Configure CMake
         run: |
           mkdir build
@@ -56,13 +61,13 @@ jobs:
             -DWITH_OPENSSL=ON \
             -DOPENSSL_ROOT_DIR=$GITHUB_WORKSPACE/android-toolchain/sysroot/usr
 
-      # Step 6: Compile testformycode for ARMv7
+      # Step 7: Compile testformycode for ARMv7
       - name: Build testformycode
         run: |
           cd build
           make -j$(nproc)
 
-      # Step 7: Upload the built binary as an artifact
+      # Step 8: Upload the built binary as an artifact
       - name: Upload testformycode binary
         uses: actions/upload-artifact@v3
         with:
