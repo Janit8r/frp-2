@@ -1,75 +1,37 @@
-name: Build testformycode for ARMv7
+name: Build and Install Dependencies
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
-  build-testformycode:
-    runs-on: ubuntu-20.04
+  build:
+    runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Install Python
-      - name: Install Python
-        run: |
-          sudo apt update
-          sudo apt install -y python3 python3-pip
+      - name: Checkout Repository
+        uses: actions/checkout@v2
 
-      # Step 2: Download and extract the source code using curl
-      - name: Download testformycode source
+      - name: Install Dependencies
         run: |
-          sudo apt install -y curl unzip
+          sudo apt-get update
+          sudo apt-get install -y curl unzip git build-essential cmake automake libtool autoconf
+
+      - name: Download and Unzip Source Code
+        run: |
           curl -L -o testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip
-          unzip testformycode.zip -d $GITHUB_WORKSPACE
+          unzip testformycode.zip
 
-      # Step 3: Download Android NDK version 23b using curl
-      - name: Download Android NDK
+      - name: Build Project
         run: |
-          curl -L -o android-ndk-r23b-linux.zip https://dl.google.com/android/repository/android-ndk-r23b-linux.zip
-          unzip android-ndk-r23b-linux.zip
-          export ANDROID_NDK=$GITHUB_WORKSPACE/android-ndk-r23b
-
-      # Step 4: Set up NDK toolchain for ARMv7
-      - name: Configure NDK toolchain
-        run: |
-          python3 $ANDROID_NDK/build/tools/make_standalone_toolchain.py \
-            --arch arm --api 21 --install-dir $GITHUB_WORKSPACE/android-toolchain
-          export PATH=$GITHUB_WORKSPACE/android-toolchain/bin:$PATH
-          export CC=arm-linux-androideabi-gcc
-          export CXX=arm-linux-androideabi-g++
-          export AR=arm-linux-androideabi-ar
-          export LD=arm-linux-androideabi-ld
-
-      # Step 5: Install dependencies for building (if required by the project)
-      - name: Install dependencies
-        run: |
-          sudo apt-get install -y libssl-dev cmake
-
-      # Step 6: Configure CMake for static linking and ARMv7 cross-compilation
-      - name: Configure CMake
-        run: |
+          cd testformycode/scripts
+          chmod 777 *.sh
+          ./build_deps.sh
+          cd ..
           mkdir build
           cd build
-          cmake ../testformycode \
-            -DCMAKE_SYSTEM_NAME=Linux \
-            -DCMAKE_SYSTEM_PROCESSOR=armv7-a \
-            -DCMAKE_C_COMPILER=arm-linux-androideabi-gcc \
-            -DCMAKE_CXX_COMPILER=arm-linux-androideabi-g++ \
-            -DCMAKE_FIND_ROOT_PATH=$GITHUB_WORKSPACE/android-toolchain/sysroot \
-            -DOPENSSL_USE_STATIC_LIBS=TRUE \
-            -DBUILD_STATIC=ON \
-            -DWITH_HWLOC=OFF \
-            -DWITH_OPENSSL=ON \
-            -DOPENSSL_ROOT_DIR=$GITHUB_WORKSPACE/android-toolchain/sysroot/usr
+          cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF ..
+          make
 
-      # Step 7: Compile testformycode for ARMv7
-      - name: Build testformycode
-        run: |
-          cd build
-          make -j$(nproc)
-
-      # Step 8: Upload the built binary as an artifact
-      - name: Upload testformycode binary
-        uses: actions/upload-artifact@v3
-        with:
-          name: testformycode-armv7
-          path: build/testformycode
