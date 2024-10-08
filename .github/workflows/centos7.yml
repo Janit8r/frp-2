@@ -1,4 +1,4 @@
-name: Build and Install Dependencies on CentOS 7
+name: Build and Install Dependencies on CentOS 71
 
 on:
   push:
