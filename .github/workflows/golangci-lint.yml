@@ -47,7 +47,7 @@ jobs:
         RUN apt-get install -y build-essential && \
             mkdir build && \
             cd build && \
-            cmake .. -DCMAKE_C_COMPILER=arm-linux-gnueabi-gcc -DCMAKE_CXX_COMPILER=arm-linux-gnueabi-g++ && \
+            cmake .. && \
             make -j$(nproc)
 
         
