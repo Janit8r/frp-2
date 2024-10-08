@@ -1,4 +1,4 @@
-name: Build and Install Dependencies centos5
+name: Build and Install Dependencies on CentOS 5
 
 on:
   push:
@@ -14,47 +14,58 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Set up CentOS 5 in Docker
-        uses: docker://centos:5
-        with:
-          options: --privileged  # 确保有足够权限
+      - name: Set up Docker container with CentOS 5
+        run: |
+          # 拉取 CentOS 5 Docker 镜像并启动容器
+          docker pull centos:5
+          docker run --name centos5-build -d centos:5 sleep infinity
 
       - name: Install Dependencies in CentOS 5
         run: |
-          # 更新 yum 并安装 EPEL 源
-          yum install -y epel-release
-          yum install -y curl unzip git gcc gcc-c++ make cmake automake libtool autoconf libatomic
-          
-          # CentOS 5 默认没有 CMake，需要手动编译或安装旧版本
-          curl -L -o cmake-2.8.12.tar.gz https://cmake.org/files/v2.8/cmake-2.8.12.tar.gz
-          tar -xzf cmake-2.8.12.tar.gz
-          cd cmake-2.8.12
-          ./bootstrap && make && make install
-          cd ..
+          docker exec centos5-build bash -c "
+            yum install -y epel-release &&
+            yum install -y curl unzip git gcc gcc-c++ make automake libtool autoconf
+          "
+
+      - name: Copy Source Code to CentOS 5 Container
+        run: |
+          docker cp . centos5-build:/src
 
       - name: Download and Unzip Source Code
         run: |
-          curl -L -o testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip
-          unzip testformycode.zip
+          docker exec centos5-build bash -c "
+            cd /src &&
+            curl -L -o testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip &&
+            unzip testformycode.zip
+          "
 
       - name: Build Project
         run: |
-          cd testformycode/scripts
-          chmod 777 *.sh
-          ./build_deps.sh
-          cd ..
-          mkdir build
-          cd build
-          /usr/local/bin/cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF ..
-          make
+          docker exec centos5-build bash -c "
+            cd /src/testformycode/scripts &&
+            chmod 777 *.sh &&
+            ./build_deps.sh &&
+            cd .. &&
+            mkdir build &&
+            cd build &&
+            cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF .. &&
+            make
+          "
 
       - name: Check Binary Dependencies
         run: |
-          cd testformycode/build
-          ldd testformycode
+          docker exec centos5-build bash -c "
+            cd /src/testformycode/build &&
+            ldd testformycode
+          "
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: build-output
-          path: testformycode/build/testformycode  # 修改为具体的可执行文件路径
+          path: ./testformycode/build/testformycode  # 修改为具体的可执行文件路径
+
+      - name: Clean up Docker container
+        run: |
+          docker stop centos5-build
+          docker rm centos5-build
