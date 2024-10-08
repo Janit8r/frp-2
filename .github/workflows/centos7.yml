@@ -20,10 +20,23 @@ jobs:
           docker pull centos:7
           docker run --name centos7-build -d centos:7 sleep infinity
 
+      - name: Configure YUM repositories in CentOS 7
+        run: |
+          docker exec centos7-build bash -c "
+            # 配置有效的 YUM 源
+            echo '[base]' > /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'name=CentOS-7 - Base' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'baseurl=http://vault.centos.org/7.9.2009/os/x86_64/' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'gpgcheck=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'enabled=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'gpgkey=http://vault.centos.org/RPM-GPG-KEY-centos7' >> /etc/yum.repos.d/CentOS-Base.repo
+          "
+
       - name: Install Dependencies in CentOS 7
         run: |
           docker exec centos7-build bash -c "
             # 更新 YUM 并安装依赖
+            yum clean all &&
             yum install -y epel-release &&
             yum install -y curl unzip git gcc gcc-c++ make automake cmake libtool autoconf
           "
