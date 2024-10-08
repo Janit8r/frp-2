@@ -32,8 +32,9 @@ jobs:
       - name: Install Dependencies in CentOS 7
         run: |
           docker exec centos7-build bash -c "
+            # 删除现有的 SCL 配置文件
+            rm -f /etc/yum.repos.d/CentOS-SCLo-scl.repo &&
             # 配置 YUM 源为阿里云镜像
-            curl -o /etc/yum.repos.d/CentOS-Base.repo https://mirrors.aliyun.com/repo/Centos-7.repo &&
             echo '[centos-sclo-rh]
             name=CentOS SCLo rh
             baseurl=https://mirrors.aliyun.com/centos/7/sclo/x86_64/rh/
@@ -44,13 +45,14 @@ jobs:
             name=CentOS SCLo scl
             baseurl=https://mirrors.aliyun.com/centos/7/sclo/x86_64/scl/
             enabled=1
-            gpgcheck=0' > /etc/yum.repos.d/CentOS-SCLo-scl.repo
+            gpgcheck=0' > /etc/yum.repos.d/CentOS-SCLo-scl.repo &&
             # 清除缓存并安装依赖
             yum clean all &&
             yum makecache &&
             yum install -y epel-release &&
             yum install -y gcc gcc-c++ make automake cmake libtool autoconf wget
           "
+
 
       - name: Copy Source Code to CentOS 7 Container
         run: |
