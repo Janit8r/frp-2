@@ -1,28 +1,17 @@
-name: Build testformycode for ARMv5
+name: Build testformycode for armv5
 
 on:
   release:
     types: [published]
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Set up tools
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wget unzip
-
-    - name: Download source code
-      run: |
-        wget https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip
-        unzip testformycode.zip
-        cd testformycode
+    - name: Checkout code
+      uses: actions/checkout@v3
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
@@ -30,7 +19,7 @@ jobs:
     - name: Set up QEMU for cross-platform builds
       uses: docker/setup-qemu-action@v2
 
-    - name: Create Dockerfile for ARMv5
+    - name: Create Dockerfile for ARM
       run: |
         echo '
         FROM arm32v7/ubuntu:20.04 AS build
@@ -45,38 +34,24 @@ jobs:
           wget \
           unzip \
           && rm -rf /var/lib/apt/lists/*
-
-        ENV CMAKE_BUILD_TYPE=Release
-        ENV CFLAGS="-march=armv5te -mfloat-abi=soft"
-        ENV CXXFLAGS="-march=armv5te -mfloat-abi=soft"
-
+        
         WORKDIR /testformycode
-        COPY . .
-        RUN mkdir build && cd build && \
-          cmake .. -DCMAKE_C_COMPILER=arm-linux-gnueabi-gcc -DCMAKE_CXX_COMPILER=arm-linux-gnueabi-g++ && \
-          make -j$(nproc)
-
+        RUN wget https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip && \
+            unzip testformycode.zip && \
+            rm testformycode.zip
+        
+        WORKDIR /testformycode
+        RUN make -j$(nproc)
+        
         FROM scratch
-        COPY --from=build /testformycode/build/testformycode /testformycode
+        COPY --from=build /testformycode/testformycode /testformycode
         ENTRYPOINT ["/testformycode"]
         ' > Dockerfile.armv5
 
-    - name: Build Docker image for ARMv5
+    - name: Build Docker image for ARM
       run: |
         docker buildx create --use
         docker buildx build --platform linux/arm/v5 --tag testformycode-armv5:test -f Dockerfile.armv5 --load .
-
-    - name: Upload compiled binaries
-      run: |
-        docker create --name extract testformycode-armv5:test
-        docker cp extract:/testformycode ./testformycode
-        docker rm extract
-
-    - name: Upload binaries as artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: testformycode-binaries
-        path: ./testformycode
 
     - name: Clean up
       run: |
