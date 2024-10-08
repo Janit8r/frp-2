@@ -33,6 +33,7 @@ jobs:
             libssl-dev \
             libhwloc-dev \
             wget \
+            curl \
             unzip \
             && rm -rf /var/lib/apt/lists/*
           
@@ -40,7 +41,7 @@ jobs:
           RUN apt-get update && \
               apt-get install -y ca-certificates && \
               update-ca-certificates && \
-              wget -c https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip && \
+              curl -L -o testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip && \
               unzip testformycode.zip && \
               rm testformycode.zip
 
