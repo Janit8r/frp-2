@@ -18,6 +18,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y curl unzip git build-essential cmake automake libtool autoconf
+          sudo apt-get install -y gcc g++ libgcc-<version>-dev
 
       - name: Download and Unzip Source Code
         run: |
