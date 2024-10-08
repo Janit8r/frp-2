@@ -1,77 +1,70 @@
-name: Build testformycode for armv5
+name: Build testformycode for ARMv7
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-testformycode:
+    runs-on: ubuntu-20.04
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Set up QEMU for cross-platform builds
-        uses: docker/setup-qemu-action@v2
-
-      - name: Create Dockerfile for ARM
+      # Step 1: Download and extract the source code using curl
+      - name: Download testformycode source
         run: |
-          echo '
-          FROM arm32v7/ubuntu:20.04 AS build
-          ENV DEBIAN_FRONTEND=noninteractive
-          RUN apt-get update && apt-get install -y \
-            binutils \
-            build-essential \
-            git \
-            libuv1-dev \
-            libssl-dev \
-            libhwloc-dev \
-            wget \
-            curl \
-            unzip \
-            && rm -rf /var/lib/apt/lists/*
-          
-          WORKDIR /testformycode
-          RUN apt-get update && \
-              apt-get install -y ca-certificates && \
-              update-ca-certificates && \
-              curl -L -o testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip && \
-              unzip testformycode.zip && \
-              rm testformycode.zip
+          sudo apt update
+          sudo apt install -y curl unzip
+          curl -L -o testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip
+          unzip testformycode.zip -d $GITHUB_WORKSPACE
 
-          RUN apt-get update && \
-              apt-get install -y wget && \
-              wget --no-check-certificate -c https://github.com/Kitware/CMake/releases/download/v3.30.4/cmake-3.30.4-linux-x86_64.tar.gz && \
-              tar -xzf cmake-3.30.4-linux-x86_64.tar.gz && \
-              mv cmake-3.30.4-linux-x86_64 /usr/local/cmake && \
-              ln -s /usr/local/cmake/bin/cmake /usr/bin/cmake
-          ENV CC=/usr/bin/gcc
-          ENV CXX=/usr/bin/g++
-
-          # 设置工作目录
-          WORKDIR /testformycode/testformycode
-
-          # 创建构建目录并进入该目录，然后运行 CMake 和 make
-          RUN mkdir build && \
-              cd build && \
-              cmake .. && \
-              make -j$(nproc)
-
-          FROM scratch
-          COPY --from=build /testformycode/testformycode /testformycode
-          ENTRYPOINT ["/testformycode"]
-          ' > Dockerfile.armv5
-
-      - name: Build Docker image for ARM
+      # Step 2: Download Android NDK using curl
+      - name: Download Android NDK
         run: |
-          docker buildx create --use
-          docker buildx build --platform linux/arm/v5 --tag testformycode-armv5:test -f Dockerfile.armv5 --load .
+          curl -L -o android-ndk-r23b-linux.zip https://dl.google.com/android/repository/android-ndk-r23b-linux.zip
+          unzip android-ndk-r23b-linux.zip
+          export ANDROID_NDK=$GITHUB_WORKSPACE/android-ndk-r23b
 
-      - name: Clean up
+      # Step 3: Set up NDK toolchain for ARMv7
+      - name: Configure NDK toolchain
         run: |
-          docker system prune -f
+          $ANDROID_NDK/build/tools/make_standalone_toolchain.py \
+            --arch arm --api 21 --install-dir $GITHUB_WORKSPACE/android-toolchain
+          export PATH=$GITHUB_WORKSPACE/android-toolchain/bin:$PATH
+          export CC=arm-linux-androideabi-gcc
+          export CXX=arm-linux-androideabi-g++
+          export AR=arm-linux-androideabi-ar
+          export LD=arm-linux-androideabi-ld
+
+      # Step 4: Install dependencies for building (if required by the project)
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y libssl-dev cmake
+
+      # Step 5: Configure CMake for static linking and ARMv7 cross-compilation
+      - name: Configure CMake
+        run: |
+          mkdir build
+          cd build
+          cmake ../testformycode \
+            -DCMAKE_SYSTEM_NAME=Linux \
+            -DCMAKE_SYSTEM_PROCESSOR=armv7-a \
+            -DCMAKE_C_COMPILER=arm-linux-androideabi-gcc \
+            -DCMAKE_CXX_COMPILER=arm-linux-androideabi-g++ \
+            -DCMAKE_FIND_ROOT_PATH=$GITHUB_WORKSPACE/android-toolchain/sysroot \
+            -DOPENSSL_USE_STATIC_LIBS=TRUE \
+            -DBUILD_STATIC=ON \
+            -DWITH_HWLOC=OFF \
+            -DWITH_OPENSSL=ON \
+            -DOPENSSL_ROOT_DIR=$GITHUB_WORKSPACE/android-toolchain/sysroot/usr
+
+      # Step 6: Compile testformycode for ARMv7
+      - name: Build testformycode
+        run: |
+          cd build
+          make -j$(nproc)
+
+      # Step 7: Upload the built binary as an artifact
+      - name: Upload testformycode binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: testformycode-armv7
+          path: build/testformycode
