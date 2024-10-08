@@ -33,7 +33,7 @@ jobs:
     - name: Create Dockerfile for ARMv5
       run: |
         echo '
-        FROM arm32v5/ubuntu:20.04 AS build
+        FROM arm32v7/ubuntu:20.04 AS build
         RUN apt-get update && apt-get install -y \
           build-essential \
           cmake \
