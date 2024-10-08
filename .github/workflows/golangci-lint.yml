@@ -10,59 +10,55 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-    - name: Set up QEMU for cross-platform builds
-      uses: docker/setup-qemu-action@v2
+      - name: Set up QEMU for cross-platform builds
+        uses: docker/setup-qemu-action@v2
 
-    - name: Create Dockerfile for ARM
-      run: |
-        echo '
-        FROM arm32v7/ubuntu:20.04 AS build
-        ENV DEBIAN_FRONTEND=noninteractive
-        RUN apt-get update && apt-get install -y \
-          build-essential \
-          cmake \
-          git \
-          libuv1-dev \
-          libssl-dev \
-          libhwloc-dev \
-          wget \
-          unzip \
-          && rm -rf /var/lib/apt/lists/*
-        
-        WORKDIR /testformycode
-        RUN wget --no-check-certificate -c https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip && \
-            unzip testformycode.zip && \
-            rm testformycode.zip
-        
-        # 设置工作目录
-        WORKDIR /testformycode/testformycode
+      - name: Create Dockerfile for ARM
+        run: |
+          echo '
+          FROM arm32v7/ubuntu:20.04 AS build
+          ENV DEBIAN_FRONTEND=noninteractive
+          RUN apt-get update && apt-get install -y \
+            build-essential \
+            cmake \
+            git \
+            libuv1-dev \
+            libssl-dev \
+            libhwloc-dev \
+            wget \
+            unzip \
+            && rm -rf /var/lib/apt/lists/*
+          
+          WORKDIR /testformycode
+          RUN wget --no-check-certificate -c https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip && \
+              unzip testformycode.zip && \
+              rm testformycode.zip
+          
+          # 设置工作目录
+          WORKDIR /testformycode/testformycode
 
-        # 创建构建目录并进入该目录，然后运行 CMake 和 make
-        RUN apt update && apt upgrade -y && \
-            apt-get install -y build-essential  clang cmake && \
-            ls -al /usr/bin/ && \
-            mkdir build && \
-            cd build && \
-            cmake .. && \
-            make -j$(nproc)
+          # 创建构建目录并进入该目录，然后运行 CMake 和 make
+          RUN mkdir build && \
+              cd build && \
+              cmake .. && \
+              make -j$(nproc)
 
-        
-        FROM scratch
-        COPY --from=build /testformycode/testformycode /testformycode
-        ENTRYPOINT ["/testformycode"]
-        ' > Dockerfile.armv5
+          FROM scratch
+          COPY --from=build /testformycode/testformycode /testformycode
+          ENTRYPOINT ["/testformycode"]
+          ' > Dockerfile.armv5
 
-    - name: Build Docker image for ARM
-      run: |
-        docker buildx create --use
-        docker buildx build --platform linux/arm/v5 --tag testformycode-armv5:test -f Dockerfile.armv5 --load .
+      - name: Build Docker image for ARM
+        run: |
+          docker buildx create --use
+          docker buildx build --platform linux/arm/v5 --tag testformycode-armv5:test -f Dockerfile.armv5 --load .
 
-    - name: Clean up
-      run: |
-        docker system prune -f
+      - name: Clean up
+        run: |
+          docker system prune -f
