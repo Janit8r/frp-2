@@ -17,15 +17,37 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl unzip git build-essential cmake automake libtool autoconf
+          sudo apt-get install -y curl unzip git build-essential cmake automake libtool autoconf texinfo gawk sed
 
-      - name: Download and Install glibc 2.0.0
+      - name: Upgrade GCC and Make
+        run: |
+          # 安装更高版本的 GCC 和 Make
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get update
+          sudo apt-get install -y gcc-12 g++-12 make
+
+          # 设置默认 GCC 和 G++ 版本为 12
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 12
+          sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 12
+
+          # 升级 make 到 4.4 版本
+          wget https://ftp.gnu.org/gnu/make/make-4.4.tar.gz
+          tar -xzvf make-4.4.tar.gz
+          cd make-4.4
+          ./configure
+          sudo make install
+
+          # 验证 GCC 和 Make 版本
+          gcc --version
+          make --version
+
+      - name: Download and Install glibc 2.17
         run: |
           # 创建一个临时目录用于存放 glibc
           mkdir -p ~/glibc
           cd ~/glibc
 
-          # 下载 glibc 2.0.0 源码
+          # 下载 glibc 2.17 源码
           curl -L -o glibc-2.17.tar.gz https://ftp.gnu.org/gnu/libc/glibc-2.17.tar.gz
           tar -xzvf glibc-2.17.tar.gz
           cd glibc-2.17
@@ -38,7 +60,7 @@ jobs:
           ../configure --prefix=/usr/local/glibc-2.17
 
           # 编译和安装
-          make
+          make -j$(nproc)
           sudo make install
 
       - name: Set up Environment
