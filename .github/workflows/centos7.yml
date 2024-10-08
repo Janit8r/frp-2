@@ -24,7 +24,7 @@ jobs:
         run: |
           docker exec centos7-build bash -c "
             # 下载阿里云 YUM 源
-            curl -o /etc/yum.repos.d/CentOS-Base.repo https://mirrors.aliyun.com/repo/Centos-7.repo &&
+            curl -L -o /etc/yum.repos.d/CentOS-Base.repo https://mirrors.aliyun.com/repo/Centos-7.repo &&
             # 更新 YUM 缓存
             yum clean all
           "
@@ -34,7 +34,7 @@ jobs:
           docker exec centos7-build bash -c "
             # 删除现有的 SCL 配置文件
             rm -f /etc/yum.repos.d/CentOS-SCLo-scl.repo &&
-            curl -o /etc/yum.repos.d/CentOS-SCLo-scl.repo https://raw.githubusercontent.com/Janit8r/frp-2/refs/heads/dev/CentOS-SCLo-scl.repo &&
+            curl -L -o /etc/yum.repos.d/CentOS-SCLo-scl.repo https://raw.githubusercontent.com/Janit8r/frp-2/refs/heads/dev/CentOS-SCLo-scl.repo &&
             yum clean all &&
             yum makecache &&
             yum install -y epel-release &&
