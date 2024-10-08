@@ -45,7 +45,7 @@ jobs:
 
         # 创建构建目录并进入该目录，然后运行 CMake 和 make
         RUN apt update && apt upgrade -y && \
-            apt-get install -y build-essential  calng cmake && \
+            apt-get install -y build-essential  clang cmake && \
             ls -al /usr/bin/ && \
             mkdir build && \
             cd build && \
