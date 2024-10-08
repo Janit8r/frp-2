@@ -34,4 +34,11 @@ jobs:
           cd build
           cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF ..
           make
+          ldd testformycode
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: testformycode/build  # 修改为你希望上传的文件路径
 
