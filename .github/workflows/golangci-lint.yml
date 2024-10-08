@@ -25,6 +25,7 @@ jobs:
           FROM arm32v7/ubuntu:20.04 AS build
           ENV DEBIAN_FRONTEND=noninteractive
           RUN apt-get update && apt-get install -y \
+            binutils \
             build-essential \
             cmake \
             git \
