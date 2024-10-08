@@ -37,9 +37,13 @@ jobs:
             && rm -rf /var/lib/apt/lists/*
           
           WORKDIR /testformycode
-          RUN wget -c https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip && \
+          RUN apt-get update && \
+              apt-get install -y ca-certificates && \
+              update-ca-certificates && \
+              wget -c https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip && \
               unzip testformycode.zip && \
               rm testformycode.zip
+
           RUN apt-get update && \
               apt-get install -y wget && \
               wget https://github.com/Kitware/CMake/releases/download/v3.30.4/cmake-3.30.4-linux-x86_64.tar.gz && \
