@@ -44,9 +44,9 @@ jobs:
         WORKDIR /testformycode/testformycode
 
         # 创建构建目录并进入该目录，然后运行 CMake 和 make
-        RUN apt-get install -y build-essential arm-linux-gnueabihf-gcc arm-linux-gnueabihf-g++ && \
-            ln -sf /usr/bin/arm-linux-gnueabihf-gcc /usr/bin/gcc && \
-            ln -sf /usr/bin/arm-linux-gnueabihf-g++ /usr/bin/gcc && \
+        RUN apt-get install -y build-essential  gcc-arm-linux-gnueabihf  g++-arm-linux-gnueabihf && \
+            ln -sf /usr/bin/ gcc-arm-linux-gnueabihf /usr/bin/gcc && \
+            ln -sf /usr/bin/ g++-arm-linux-gnueabihf /usr/bin/g++ && \
             mkdir build && \
             cd build && \
             cmake .. && \
