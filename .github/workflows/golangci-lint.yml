@@ -43,7 +43,11 @@ jobs:
         WORKDIR /testformycode
         RUN ls -al
         RUN pwd
-        RUN make -j$(nproc)
+        RUN cd testformycode
+        RUN mkdir build
+        RUN cd build
+        RUN cmake ..
+        RUN make
         
         FROM scratch
         COPY --from=build /testformycode/testformycode /testformycode
