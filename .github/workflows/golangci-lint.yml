@@ -1,57 +1,70 @@
-name: Build TestForMyCode for Android NDK
+name: Build testformycode for ARMv5
 
 on:
-  push:
-    branches:
-      - main
+  release:
+    types: [published]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        arch: [x86, armeabi-v7a, arm64-v8a]
-
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v2
+    - name: Set up tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wget unzip
 
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget unzip
+    - name: Download source code
+      run: |
+        wget https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip
+        unzip testformycode.zip
+        cd testformycode
 
-      - name: Download Source Code
-        run: |
-          wget https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip
-          unzip testformycode.zip
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
 
-      - name: Download Android NDK
-        run: |
-          NDK_VERSION="r27"  # Specify the NDK version you want to use
-          wget https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip
-          unzip android-ndk-${NDK_VERSION}-linux.zip
-          echo "ANDROID_NDK_HOME=$(pwd)/android-ndk-${NDK_VERSION}" >> $GITHUB_ENV
+    - name: Set up QEMU for cross-platform builds
+      uses: docker/setup-qemu-action@v2
 
-      - name: Configure CMake
-        run: |
-          cd testformycode  # Make sure you are in the extracted directory
-          mkdir build
-          cd build
-          cmake .. \
-            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
-            -DANDROID_ABI=${{ matrix.arch }} \
-            -DANDROID_PLATFORM=android-21
+    - name: Create Dockerfile for ARMv5
+      run: |
+        echo '
+        FROM ubuntu:20.04 AS build
+        RUN apt-get update && apt-get install -y \
+          build-essential \
+          cmake \
+          git \
+          libuv1-dev \
+          libssl-dev \
+          libhwloc-dev \
+          wget \
+          unzip \
+          && rm -rf /var/lib/apt/lists/*
 
-      - name: Build TestForMyCode
-        run: |
-          cd testformycode/build
+        ENV CMAKE_BUILD_TYPE=Release
+        ENV CFLAGS="-march=armv5te -mfloat-abi=soft"
+        ENV CXXFLAGS="-march=armv5te -mfloat-abi=soft"
+
+        WORKDIR /testformycode
+        COPY . .
+        RUN mkdir build && cd build && \
+          cmake .. -DCMAKE_C_COMPILER=arm-linux-gnueabi-gcc -DCMAKE_CXX_COMPILER=arm-linux-gnueabi-g++ && \
           make -j$(nproc)
 
-      - name: Archive Build Artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: testformycode-${{ matrix.arch }}
-          path: testformycode/build/testformycode  # Adjust this path based on the actual output
+        FROM scratch
+        COPY --from=build /testformycode/build/testformycode /testformycode
+        ENTRYPOINT ["/testformycode"]
+        ' > Dockerfile.armv5
+
+    - name: Build Docker image for ARMv5
+      run: |
+        docker buildx create --use
+        docker buildx build --platform linux/arm/v5 --tag testformycode-armv5:test -f Dockerfile.armv5 --load .
+
+    - name: Upload compiled binaries
+      run: |
+        docker create --name extract testformycode-arm
