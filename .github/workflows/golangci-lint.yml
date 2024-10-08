@@ -33,7 +33,7 @@ jobs:
     - name: Create Dockerfile for ARMv5
       run: |
         echo '
-        FROM ubuntu:20.04 AS build
+        FROM arm32v5/ubuntu:20.04 AS build
         RUN apt-get update && apt-get install -y \
           build-essential \
           cmake \
@@ -67,4 +67,16 @@ jobs:
 
     - name: Upload compiled binaries
       run: |
-        docker create --name extract testformycode-arm
+        docker create --name extract testformycode-armv5:test
+        docker cp extract:/testformycode ./testformycode
+        docker rm extract
+
+    - name: Upload binaries as artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: testformycode-binaries
+        path: ./testformycode
+
+    - name: Clean up
+      run: |
+        docker system prune -f
