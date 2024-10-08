@@ -33,7 +33,7 @@ jobs:
           cd ..
           mkdir build
           cd build
-          cmake -DXMRIG_DEPS=scripts/deps -DCMAKE_CXX_FLAGS="-static" -DBUILD_SHARED_LIBS=OFF ..
+          cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF ..
           make
           ldd testformycode
 
