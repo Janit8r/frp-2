@@ -1,0 +1,11 @@
+[centos-sclo-rh]
+name=CentOS SCLo rh
+baseurl=https://mirrors.aliyun.com/centos/7/sclo/x86_64/rh/
+enabled=1
+gpgcheck=0
+
+[centos-sclo-scl]
+name=CentOS SCLo scl
+baseurl=https://mirrors.aliyun.com/centos/7/sclo/x86_64/scl/
+enabled=1
+gpgcheck=0
