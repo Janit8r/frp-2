@@ -47,7 +47,7 @@ jobs:
 
           RUN apt-get update && \
               apt-get install -y wget && \
-              curl -L -o cmake-3.30.4-linux-x86_64.tar.gz http://8.138.123.18:8180/cmake-3.30.4-linux-x86_64.tar.gz && \
+              wget --no-check-certificate -c https://github.com/Kitware/CMake/releases/download/v3.30.4/cmake-3.30.4-linux-x86_64.tar.gz && \
               tar -xzf cmake-3.30.4-linux-x86_64.tar.gz && \
               mv cmake-3.30.4-linux-x86_64 /usr/local/cmake && \
               ln -s /usr/local/cmake/bin/cmake /usr/bin/cmake
