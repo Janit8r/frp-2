@@ -34,7 +34,8 @@ jobs:
           docker exec centos7-build bash -c "
             # 删除现有的 SCL 配置文件
             rm -f /etc/yum.repos.d/CentOS-SCLo-scl.repo &&
-            curl -L -o /etc/yum.repos.d/CentOS-SCLo-scl.repo https://raw.githubusercontent.com/Janit8r/frp-2/refs/heads/dev/CentOS-SCLo-scl.repo &&
+            #curl -L -o /etc/yum.repos.d/CentOS-SCLo-scl.repo https://raw.githubusercontent.com/Janit8r/frp-2/refs/heads/dev/CentOS-SCLo-scl.repo &&
+            yum-config-manager --disable centos-sclo-scl &&
             yum clean all &&
             yum makecache &&
             yum install -y epel-release &&
