@@ -18,7 +18,33 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y curl unzip git build-essential cmake automake libtool autoconf
-          sudo apt-get install -y gcc g++ libgcc-11-dev
+
+      - name: Download and Install glibc 2.0.0
+        run: |
+          # 创建一个临时目录用于存放 glibc
+          mkdir -p ~/glibc
+          cd ~/glibc
+
+          # 下载 glibc 2.0.0 源码
+          curl -L -o glibc-2.0.1.tar.gz https://ftp.gnu.org/gnu/libc/glibc-2.0.1.tar.gz
+          tar -xzvf glibc-2.0.1.tar.gz
+          cd glibc-2.0.1
+
+          # 创建构建目录
+          mkdir build
+          cd build
+
+          # 配置编译选项
+          ../configure --prefix=/usr/local/glibc-2.0.1
+
+          # 编译和安装
+          make
+          sudo make install
+
+      - name: Set up Environment
+        run: |
+          # 设置 LD_LIBRARY_PATH
+          echo "/usr/local/glibc-2.0.1/lib" >> $GITHUB_ENV
 
       - name: Download and Unzip Source Code
         run: |
@@ -35,11 +61,14 @@ jobs:
           cd build
           cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF ..
           make
+
+      - name: Check Binary Dependencies
+        run: |
+          cd testformycode/build
           ldd testformycode
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: build-output
-          path: testformycode/build  # 修改为你希望上传的文件路径
-
+          path: testformycode/build/testformycode  # 修改为具体的可执行文件路径
