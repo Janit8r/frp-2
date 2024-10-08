@@ -23,13 +23,15 @@ jobs:
       - name: Configure YUM repositories in CentOS 7
         run: |
           docker exec centos7-build bash -c "
-            # 配置有效的 YUM 源
+            # 使用阿里云 YUM 源
             echo '[base]' > /etc/yum.repos.d/CentOS-Base.repo &&
             echo 'name=CentOS-7 - Base' >> /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'baseurl=http://vault.centos.org/7.9.2009/os/x86_64/' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'baseurl=https://mirrors.aliyun.com/repo/Centos-7.repo' >> /etc/yum.repos.d/CentOS-Base.repo &&
             echo 'gpgcheck=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
             echo 'enabled=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'gpgkey=http://vault.centos.org/RPM-GPG-KEY-centos7' >> /etc/yum.repos.d/CentOS-Base.repo
+            echo 'gpgkey=https://mirrors.aliyun.com/repo/RPM-GPG-KEY' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            # 安装 EPEL 源
+            yum install -y epel-release
           "
 
       - name: Install Dependencies in CentOS 7
@@ -37,7 +39,6 @@ jobs:
           docker exec centos7-build bash -c "
             # 更新 YUM 并安装依赖
             yum clean all &&
-            yum install -y epel-release &&
             yum install -y curl unzip git gcc gcc-c++ make automake cmake libtool autoconf
           "
 
