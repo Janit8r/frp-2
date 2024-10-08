@@ -1,4 +1,4 @@
-name: Build and Install Dependencies on CentOS 5
+name: Build and Install Dependencies on CentOS 7
 
 on:
   push:
@@ -14,51 +14,27 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Set up Docker container with CentOS 5
+      - name: Set up Docker container with CentOS 7
         run: |
-          # 拉取 CentOS 5 Docker 镜像并启动容器
-          docker pull centos:5
-          docker run --name centos5-build -d centos:5 sleep infinity
+          # 拉取 CentOS 7 Docker 镜像并启动容器
+          docker pull centos:7
+          docker run --name centos7-build -d centos:7 sleep infinity
 
-      - name: Install Dependencies in CentOS 5
+      - name: Install Dependencies in CentOS 7
         run: |
-          docker exec centos5-build bash -c "
-            # 配置有效的 YUM 源
-            echo '[base]' > /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'name=CentOS-5 - Base' >> /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'baseurl=http://vault.centos.org/5.11/os/x86_64/' >> /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'gpgcheck=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'enabled=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'gpgkey=http://vault.centos.org/RPM-GPG-KEY-centos5' >> /etc/yum.repos.d/CentOS-Base.repo &&
-
-            # 配置其他仓库
-            echo '[extras]' >> /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'name=CentOS-5 - Extras' >> /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'baseurl=http://vault.centos.org/5.11/extras/x86_64/' >> /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'gpgcheck=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'enabled=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'gpgkey=http://vault.centos.org/RPM-GPG-KEY-centos5' >> /etc/yum.repos.d/CentOS-Base.repo &&
-
-            echo '[updates]' >> /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'name=CentOS-5 - Updates' >> /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'baseurl=http://vault.centos.org/5.11/updates/x86_64/' >> /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'gpgcheck=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'enabled=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
-            echo 'gpgkey=http://vault.centos.org/RPM-GPG-KEY-centos5' >> /etc/yum.repos.d/CentOS-Base.repo &&
-
-            # 安装依赖
-            yum clean all &&
+          docker exec centos7-build bash -c "
+            # 更新 YUM 并安装依赖
             yum install -y epel-release &&
-            yum install -y curl unzip git gcc gcc-c++ make automake libtool autoconf
+            yum install -y curl unzip git gcc gcc-c++ make automake cmake libtool autoconf
           "
 
-      - name: Copy Source Code to CentOS 5 Container
+      - name: Copy Source Code to CentOS 7 Container
         run: |
-          docker cp . centos5-build:/src
+          docker cp . centos7-build:/src
 
       - name: Download and Unzip Source Code
         run: |
-          docker exec centos5-build bash -c "
+          docker exec centos7-build bash -c "
             cd /src &&
             curl -L -o testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip &&
             unzip testformycode.zip
@@ -66,7 +42,7 @@ jobs:
 
       - name: Build Project
         run: |
-          docker exec centos5-build bash -c "
+          docker exec centos7-build bash -c "
             cd /src/testformycode/scripts &&
             chmod 777 *.sh &&
             ./build_deps.sh &&
@@ -77,20 +53,13 @@ jobs:
             make
           "
 
-      - name: Check Binary Dependencies
-        run: |
-          docker exec centos5-build bash -c "
-            cd /src/testformycode/build &&
-            ldd testformycode
-          "
-
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: build-output
-          path: ./testformycode/build/testformycode  # 修改为具体的可执行文件路径
+          path: ./testformycode/build  # 修改为你希望上传的文件路径
 
       - name: Clean up Docker container
         run: |
-          docker stop centos5-build
-          docker rm centos5-build
+          docker stop centos7-build
+          docker rm centos7-build
