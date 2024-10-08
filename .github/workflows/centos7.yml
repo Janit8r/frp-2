@@ -1,4 +1,4 @@
-name: Build and Install Dependencies centos7
+name: Build and Install Dependencies centos5
 
 on:
   push:
@@ -14,15 +14,23 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Set up CentOS 7 in Docker
-        uses: docker://centos:7
+      - name: Set up CentOS 5 in Docker
+        uses: docker://centos:5
         with:
           options: --privileged  # 确保有足够权限
 
-      - name: Install Dependencies in CentOS 7
+      - name: Install Dependencies in CentOS 5
         run: |
+          # 更新 yum 并安装 EPEL 源
           yum install -y epel-release
           yum install -y curl unzip git gcc gcc-c++ make cmake automake libtool autoconf libatomic
+          
+          # CentOS 5 默认没有 CMake，需要手动编译或安装旧版本
+          curl -L -o cmake-2.8.12.tar.gz https://cmake.org/files/v2.8/cmake-2.8.12.tar.gz
+          tar -xzf cmake-2.8.12.tar.gz
+          cd cmake-2.8.12
+          ./bootstrap && make && make install
+          cd ..
 
       - name: Download and Unzip Source Code
         run: |
@@ -37,7 +45,7 @@ jobs:
           cd ..
           mkdir build
           cd build
-          cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF ..
+          /usr/local/bin/cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF ..
           make
 
       - name: Check Binary Dependencies
