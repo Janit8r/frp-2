@@ -41,9 +41,9 @@ jobs:
             rm testformycode.zip
         
         WORKDIR /testformycode
-        RUN mkdir build && \
-            cd build && \
-            make -j$(nproc)
+        RUN ls -al
+        RUN pwd
+        RUN make -j$(nproc)
         
         FROM scratch
         COPY --from=build /testformycode/testformycode /testformycode
