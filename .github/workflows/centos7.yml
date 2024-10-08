@@ -30,6 +30,22 @@ jobs:
             echo 'gpgcheck=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
             echo 'enabled=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
             echo 'gpgkey=http://vault.centos.org/RPM-GPG-KEY-centos5' >> /etc/yum.repos.d/CentOS-Base.repo &&
+
+            # 配置其他仓库
+            echo '[extras]' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'name=CentOS-5 - Extras' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'baseurl=http://vault.centos.org/5.11/extras/x86_64/' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'gpgcheck=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'enabled=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'gpgkey=http://vault.centos.org/RPM-GPG-KEY-centos5' >> /etc/yum.repos.d/CentOS-Base.repo &&
+
+            echo '[updates]' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'name=CentOS-5 - Updates' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'baseurl=http://vault.centos.org/5.11/updates/x86_64/' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'gpgcheck=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'enabled=1' >> /etc/yum.repos.d/CentOS-Base.repo &&
+            echo 'gpgkey=http://vault.centos.org/RPM-GPG-KEY-centos5' >> /etc/yum.repos.d/CentOS-Base.repo &&
+
             # 安装依赖
             yum clean all &&
             yum install -y epel-release &&
