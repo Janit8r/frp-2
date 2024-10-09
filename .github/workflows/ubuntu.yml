@@ -1,4 +1,4 @@
-name: Build and Install Dependencies ubuntu
+name: Build and Install Dependencies
 
 on:
   push:
@@ -21,15 +21,15 @@ jobs:
 
       - name: Install Dependencies in Ubuntu 12.04
         run: |
-          docker exec -it ubuntu12 bash -c "apt-get update && apt-get install -y curl unzip git build-essential cmake automake libtool autoconf"
+          docker exec ubuntu12 bash -c "apt-get update && apt-get install -y curl unzip git build-essential cmake automake libtool autoconf"
 
       - name: Download and Unzip Source Code in Container
         run: |
-          docker exec -it ubuntu12 bash -c "curl -L -o /testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip && unzip /testformycode.zip -d /"
+          docker exec ubuntu12 bash -c "curl -L -o /testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip && unzip /testformycode.zip -d /"
 
       - name: Build Project in Container
         run: |
-          docker exec -it ubuntu12 bash -c "cd /testformycode/scripts && chmod 777 *.sh && ./build_deps.sh && cd .. && mkdir build && cd build && cmake -DXMRIG_DEPS=/testformycode/scripts/deps -DBUILD_SHARED_LIBS=OFF .. && make"
+          docker exec ubuntu12 bash -c "cd /testformycode/scripts && chmod 777 *.sh && ./build_deps.sh && cd .. && mkdir build && cd build && cmake -DXMRIG_DEPS=/testformycode/scripts/deps -DBUILD_SHARED_LIBS=OFF .. && make"
 
       - name: Copy Build Artifacts to Host
         run: |
