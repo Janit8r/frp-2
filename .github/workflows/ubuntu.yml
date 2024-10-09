@@ -19,20 +19,13 @@ jobs:
           docker pull ubuntu:12.04
           docker run -d --name ubuntu12 ubuntu:12.04 tail -f /dev/null
 
-      - name: Update apt sources in Ubuntu 12.04
+      - name: Install Dependencies in Ubuntu 12.04
         run: |
-          docker exec ubuntu12 bash -c "sed -i 's/archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list && sed -i 's/security.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list"
+          docker exec ubuntu12 bash -c "apt-get update && apt-get install -y curl wget unzip git build-essential cmake automake libtool autoconf software-properties-common"
 
-      - name: Install Dependencies and GCC 9 in Ubuntu 12.04
+      - name: Add GCC 9 PPA and Install GCC 9
         run: |
-          docker exec ubuntu12 bash -c "apt-get update && apt-get install -y software-properties-common"
-          docker exec ubuntu12 bash -c "add-apt-repository ppa:ubuntu-toolchain-r/test && apt-get update"
-          docker exec ubuntu12 bash -c "apt-get install -y gcc-9 g++-9"
-          docker exec ubuntu12 bash -c "update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 90 --slave /usr/bin/g++ g++ /usr/bin/g++-9"
-
-      - name: Install Other Dependencies in Ubuntu 12.04
-        run: |
-          docker exec ubuntu12 bash -c "apt-get install -y curl unzip wget git build-essential cmake automake libtool autoconf"
+          docker exec ubuntu12 bash -c "add-apt-repository ppa:ubuntu-toolchain-r/test && apt-get update && apt-get install -y gcc-9 g++-9 && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 90 --slave /usr/bin/g++ g++ /usr/bin/g++-9"
 
       - name: Download and Unzip Source Code in Container
         run: |
@@ -50,7 +43,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: build-output
-          path: ./build
+          path: ./build  # 修改为你希望上传的文件路径
 
       - name: Cleanup Docker Container
         run: |
