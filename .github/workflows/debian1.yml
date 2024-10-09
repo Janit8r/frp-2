@@ -18,7 +18,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y curl unzip git build-essential cmake automake libtool autoconf
-          sudo apt-get install -y glibc-source libstdc++-static
+          sudo apt-get install -y glibc-source libstdc++-dev
 
       - name: Download and Unzip Source Code
         run: |
@@ -33,7 +33,7 @@ jobs:
           cd ..
           mkdir build
           cd build
-          cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF -DCMAKE_CXX_FLAGS="-static" ..
+          cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF ..
           make
 
       - name: Upload Build Artifacts
