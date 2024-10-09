@@ -1,0 +1,44 @@
+name: Build and Install Dependencies (i686)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Install Dependencies for i686
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y curl unzip git build-essential cmake automake libtool autoconf gcc-multilib g++-multilib
+          sudo apt-get install -y libc6-dev-i386 libstdc++-12-dev:i386 libgcc-12-dev:i386
+
+      - name: Download and Unzip Source Code
+        run: |
+          curl -L -o testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip
+          unzip testformycode.zip
+
+      - name: Build Project for i686
+        run: |
+          cd testformycode/scripts
+          chmod 777 *.sh
+          ./build_deps.sh
+          cd ..
+          mkdir build
+          cd build
+          cmake -DXMRIG_DEPS=scripts/deps -DCMAKE_CXX_FLAGS="-m32 -static" -DCMAKE_EXE_LINKER_FLAGS="-m32 -static" -DBUILD_SHARED_LIBS=OFF ..
+          make
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: testformycode/build
