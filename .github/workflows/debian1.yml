@@ -11,37 +11,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Update packages
+      - name: Set up Docker
         run: |
-          sudo apt-get update
-          sudo apt-get upgrade -y
+          docker pull ubuntu:20.04
+          docker run -d --name glibc-builder -v ${{ github.workspace }}:/workspace ubuntu:20.04 tail -f /dev/null
 
-      - name: Install dependencies
+      - name: Install dependencies in Docker
         run: |
-          sudo apt-get install -y build-essential wget
+          docker exec glibc-builder bash -c "apt-get update && apt-get install -y build-essential wget"
 
-      - name: Check tool versions
+      - name: Download glibc in Docker
         run: |
-          gcc --version
-          ld --version
-          as --version
-          make --version
+          docker exec glibc-builder bash -c "wget https://ftp.gnu.org/gnu/libc/glibc-2.4.tar.gz && tar -xzf glibc-2.4.tar.gz -C /workspace"
 
-      - name: Download glibc
+      - name: Build glibc in Docker
         run: |
-          wget https://ftp.gnu.org/gnu/libc/glibc-2.4.tar.gz
-          tar -xzf glibc-2.4.tar.gz
-          cd glibc-2.4
+          docker exec glibc-builder bash -c "cd /workspace/glibc-2.4 && mkdir build && cd build && ../configure --prefix=/usr/local/glibc-2.4 && make && make install"
 
-      - name: Build glibc
+      - name: Verify glibc installation in Docker
         run: |
-          cd glibc-2.4
-          mkdir build
-          cd build
-          ../configure --prefix=/usr/local/glibc-2.4
-          make
-          sudo make install
+          docker exec glibc-builder bash -c "/usr/local/glibc-2.4/bin/ldd --version"
 
-      - name: Verify glibc installation
+      - name: Cleanup
         run: |
-          /usr/local/glibc-2.4/bin/ldd --version
+          docker stop glibc-builder
+          docker rm glibc-builder
