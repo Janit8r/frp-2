@@ -23,11 +23,11 @@ jobs:
       - name: Download and Unzip Source Code
         run: |
           curl -L -o testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode-32.zip
-          unzip testformycode.zip
+          unzip testformycode-32.zip
 
       - name: Build Project for i686
         run: |
-          cd testformycode/scripts
+          cd testformycode-32/scripts
           chmod 777 *.sh
           ./build_deps.sh
           cd ..
@@ -40,4 +40,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: build-output
-          path: testformycode/build
+          path: testformycode-32/build
