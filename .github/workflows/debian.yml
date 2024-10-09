@@ -18,36 +18,22 @@ jobs:
         uses: docker/setup-buildx-action@v2
 
       - name: Build with Docker
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          push: false
-          build-args: |
-            VERSION=2.15
-          dockerfile: |
-            # 使用 Ubuntu 18.04，带有 glibc 2.15 的基础镜像
-            FROM ubuntu:18.04
+        run: |
+          echo 'FROM ubuntu:18.04
+          RUN apt-get update && \
+              apt-get install -y curl unzip git build-essential wget cmake automake libtool autoconf && \
+              rm -rf /var/lib/apt/lists/*
+          WORKDIR /app
+          COPY testformycode.zip .
+          RUN unzip testformycode.zip
+          WORKDIR /app/testformycode/scripts
+          RUN chmod 777 *.sh && ./build_deps.sh
+          RUN mkdir /app/testformycode/build && \
+              cd /app/testformycode/build && \
+              cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF .. && \
+              make' > Dockerfile
 
-            # 安装必要的依赖
-            RUN apt-get update && \
-                apt-get install -y curl unzip git wget build-essential cmake automake libtool autoconf && \
-                rm -rf /var/lib/apt/lists/*
-
-            # 下载并解压源代码
-            WORKDIR /app
-            COPY testformycode.zip .
-            RUN unzip testformycode.zip
-
-            # 构建项目
-            WORKDIR /app/testformycode/scripts
-            RUN chmod 777 *.sh && \
-                ./build_deps.sh
-
-            # 创建构建目录
-            RUN mkdir /app/testformycode/build && \
-                cd /app/testformycode/build && \
-                cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF .. && \
-                make
+          docker build -t my-build-image .
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
