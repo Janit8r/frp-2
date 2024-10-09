@@ -18,7 +18,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y curl unzip git build-essential cmake automake libtool autoconf
-          sudo apt-get install -y glibc-source libstdc++-dev
+          sudo apt-get install -y glibc-source libstdc++-12-dev
 
       - name: Download and Unzip Source Code
         run: |
