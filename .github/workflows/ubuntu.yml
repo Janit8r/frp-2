@@ -21,11 +21,12 @@ jobs:
 
       - name: Update apt sources in Ubuntu 12.04
         run: |
-          docker exec ubuntu12 bash -c "sed -i 's/archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list && sed -i 's/security.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list && apt-get update"
+          docker exec ubuntu12 bash -c "sed -i 's/archive.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list && sed -i 's/security.ubuntu.com/old-releases.ubuntu.com/g' /etc/apt/sources.list"
 
       - name: Install Dependencies and GCC 9 in Ubuntu 12.04
         run: |
-          docker exec ubuntu12 bash -c "apt-get install -y software-properties-common"
+          docker exec ubuntu12 bash -c "apt-get update && apt-get install -y software-properties-common"
+          docker exec ubuntu12 bash -c "apt-get update && apt-get install -y python-software-properties" # Ensure python-software-properties is installed
           docker exec ubuntu12 bash -c "add-apt-repository ppa:ubuntu-toolchain-r/test && apt-get update"
           docker exec ubuntu12 bash -c "apt-get install -y gcc-9 g++-9"
           docker exec ubuntu12 bash -c "update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 90 --slave /usr/bin/g++ g++ /usr/bin/g++-9"
@@ -40,7 +41,7 @@ jobs:
 
       - name: Build Project in Container
         run: |
-          docker exec ubuntu12 bash -c "cd /testformycode/scripts && chmod +x *.sh && ./build_deps.sh && cd .. && mkdir build && cd build && cmake -DXMRIG_DEPS=/testformycode/scripts/deps -DBUILD_SHARED_LIBS=OFF .. && make"
+          docker exec ubuntu12 bash -c "cd /testformycode/scripts && chmod 777 *.sh && ./build_deps.sh && cd .. && mkdir build && cd build && cmake -DXMRIG_DEPS=/testformycode/scripts/deps -DBUILD_SHARED_LIBS=OFF .. && make"
 
       - name: Copy Build Artifacts to Host
         run: |
