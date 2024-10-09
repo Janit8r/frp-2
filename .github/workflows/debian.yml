@@ -18,10 +18,9 @@ jobs:
         run: |
           echo "FROM debian:wheezy" > Dockerfile
           echo "RUN echo 'deb http://archive.debian.org/debian/ wheezy main' > /etc/apt/sources.list && \\" >> Dockerfile
-          echo "    echo 'deb http://archive.debian.org/debian/ wheezy-updates main' >> /etc/apt/sources.list && \\" >> Dockerfile
           echo "    echo 'Acquire::Languages none;' >> /etc/apt/apt.conf.d/99no-languages && \\" >> Dockerfile
           echo "    apt-get update && \\" >> Dockerfile
-          echo "    apt-get install -y curl unzip git build-essential wget cmake automake libtool autoconf && \\" >> Dockerfile
+          echo "    apt-get install -y curl unzip wget git build-essential wget cmake automake libtool autoconf && \\" >> Dockerfile
           echo "    apt-get clean" >> Dockerfile
 
       - name: Build Docker Image
