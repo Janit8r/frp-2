@@ -1,4 +1,4 @@
-name: Build and Install Dependencies ub
+name: Build and Install Dependencies ub2
 
 on:
   push:
@@ -25,8 +25,11 @@ jobs:
 
       - name: Install Dependencies and GCC 9 in Ubuntu 12.04
         run: |
+          docker exec ubuntu12 bash -c "apt-get update"
           docker exec ubuntu12 bash -c "apt-get install -y software-properties-common"
-          docker exec ubuntu12 bash -c "add-apt-repository ppa:ubuntu-toolchain-r/test && apt-get update"
+          docker exec ubuntu12 bash -c "apt-get update" # 再次更新以确保软件源最新
+          docker exec ubuntu12 bash -c "add-apt-repository ppa:ubuntu-toolchain-r/test"
+          docker exec ubuntu12 bash -c "apt-get update"
           docker exec ubuntu12 bash -c "apt-get install -y gcc-9 g++-9 libc6-dev"
           docker exec ubuntu12 bash -c "update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 90 --slave /usr/bin/g++ g++ /usr/bin/g++-9"
 
