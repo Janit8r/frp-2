@@ -30,6 +30,8 @@ jobs:
           WORKDIR /app
           COPY testformycode.zip .
           RUN unzip testformycode.zip
+          RUN ls -al
+          RUN pwd
           WORKDIR /app/testformycode/scripts
           RUN chmod 777 *.sh && ./build_deps.sh
           RUN mkdir /app/testformycode/build && \
