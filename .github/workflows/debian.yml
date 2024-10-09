@@ -1,4 +1,4 @@
-name: Build and Install Dependencies
+name: Build and Install Dependencies vv
 
 on:
   push:
@@ -30,18 +30,24 @@ jobs:
           WORKDIR /app
           COPY testformycode.zip .
           RUN unzip testformycode.zip
-          RUN ls -al
-          RUN pwd
-          RUN cd /app/testformycode/scripts &&chmod 777 *.sh && ./build_deps.sh
-          RUN mkdir /app/testformycode/build && \
+          WORKDIR /app/testformycode/scripts
+          RUN chmod 777 *.sh && ./build_deps.sh
+          RUN mkdir -p /app/testformycode/build && \
               cd /app/testformycode/build && \
               cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF .. && \
               make' > Dockerfile
 
           docker build -t my-build-image .
 
+      - name: Copy Build Output
+        run: |
+          mkdir -p output
+          docker run --rm -v ${{ github.workspace }}:/workspace my-build-image cp -r /app/testformycode/build /workspace/output
+
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: build-output
-          path: /app/testformycode/build/testformycode
+          path: output/build
+          if-no-files-found: warn
+          include-hidden-files: false
