@@ -25,7 +25,7 @@ jobs:
 
       - name: Install Dependencies in Ubuntu 12.04
         run: |
-          docker exec ubuntu12 bash -c "apt-get update && apt-get install -y curl unzip git build-essential cmake automake libtool autoconf"
+          docker exec ubuntu12 bash -c "apt-get update && apt-get install -y curl unzip git build-essential cmake automake libtool autoconf wget"
 
       - name: Download and Unzip Source Code in Container
         run: |
