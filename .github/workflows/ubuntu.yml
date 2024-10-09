@@ -33,7 +33,7 @@ jobs:
 
       - name: Install Other Dependencies in Ubuntu 12.04
         run: |
-          docker exec ubuntu12 bash -c "apt-get install -y curl unzip git build-essential cmake automake libtool autoconf"
+          docker exec ubuntu12 bash -c "apt-get install -y curl wget python3 unzip git build-essential cmake automake libtool autoconf"
 
       - name: Download and Unzip Source Code in Container
         run: |
