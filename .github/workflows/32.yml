@@ -18,8 +18,7 @@ jobs:
         run: |
           sudo dpkg --add-architecture i386
           sudo apt-get update
-          sudo apt-get install -y curl unzip git build-essential cmake automake libtool autoconf gcc-multilib g++-multilib
-          sudo apt-get install -y libc6-dev-i386 libstdc++-12-dev:i386 libgcc-12-dev:i386
+          sudo apt-get install -y gcc-multilib g++-multilib libc6-dev-i386 libssl-dev:i386 build-essential curl wget cmake automake libtool autoconf
 
       - name: Download and Unzip Source Code
         run: |
@@ -34,7 +33,7 @@ jobs:
           cd ..
           mkdir build
           cd build
-          cmake -DXMRIG_DEPS=scripts/deps -DCMAKE_CXX_FLAGS="-m32 -static" -DCMAKE_EXE_LINKER_FLAGS="-m32 -static" -DBUILD_SHARED_LIBS=OFF ..
+          cmake -DXMRIG_DEPS=scripts/deps -DCMAKE_C_FLAGS="-m32 -static" -DCMAKE_CXX_FLAGS="-m32 -static" -DCMAKE_EXE_LINKER_FLAGS="-m32 -static" ..
           make
 
       - name: Upload Build Artifacts
