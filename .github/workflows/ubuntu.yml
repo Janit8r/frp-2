@@ -1,0 +1,47 @@
+name: Build and Install Dependencies ubuntu
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Set up Ubuntu 12.04 Docker Environment
+        run: |
+          docker pull ubuntu:12.04
+          docker run -d --name ubuntu12 ubuntu:12.04 tail -f /dev/null
+
+      - name: Install Dependencies in Ubuntu 12.04
+        run: |
+          docker exec -it ubuntu12 bash -c "apt-get update && apt-get install -y curl unzip git build-essential cmake automake libtool autoconf"
+
+      - name: Download and Unzip Source Code in Container
+        run: |
+          docker exec -it ubuntu12 bash -c "curl -L -o /testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip && unzip /testformycode.zip -d /"
+
+      - name: Build Project in Container
+        run: |
+          docker exec -it ubuntu12 bash -c "cd /testformycode/scripts && chmod 777 *.sh && ./build_deps.sh && cd .. && mkdir build && cd build && cmake -DXMRIG_DEPS=/testformycode/scripts/deps -DBUILD_SHARED_LIBS=OFF .. && make"
+
+      - name: Copy Build Artifacts to Host
+        run: |
+          docker cp ubuntu12:/testformycode/build ./build
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: ./build  # 修改为你希望上传的文件路径
+
+      - name: Cleanup Docker Container
+        run: |
+          docker stop ubuntu12
+          docker rm ubuntu12
