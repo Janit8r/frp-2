@@ -1,4 +1,4 @@
-name: Build and Install Dependencies
+name: Build and Install Dependencies 12
 
 on:
   push:
@@ -27,7 +27,7 @@ jobs:
           ENV DEBIAN_FRONTEND=noninteractive
           RUN apt-get update && \
               apt-get install -y --no-install-recommends \
-              curl unzip git wget build-essential cmake automake libtool autoconf bison python3 && \
+              curl unzip git wget build-essential cmake automake libtool autoconf bison python3 gawk && \
               rm -rf /var/lib/apt/lists/*
           WORKDIR /app
           RUN curl -L -o glibc-2.17.tar.gz http://ftp.gnu.org/gnu/libc/glibc-2.17.tar.gz && \
