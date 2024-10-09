@@ -32,8 +32,7 @@ jobs:
           RUN unzip testformycode.zip
           RUN ls -al
           RUN pwd
-          WORKDIR /app/testformycode/scripts
-          RUN chmod 777 *.sh && ./build_deps.sh
+          RUN cd /app/testformycode/scripts &&chmod 777 *.sh && ./build_deps.sh
           RUN mkdir /app/testformycode/build && \
               cd /app/testformycode/build && \
               cmake -DXMRIG_DEPS=scripts/deps -DBUILD_SHARED_LIBS=OFF .. && \
