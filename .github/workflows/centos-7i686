@@ -1,4 +1,4 @@
-name: Build and Install Dependencies (mac_i686)
+name: Build and Install Dependencies (centos-7i686)
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: centos-7
 
     steps:
       - name: Checkout Repository
@@ -16,13 +16,14 @@ jobs:
 
       - name: Install Dependencies for i686
         run: |
-          brew update
-          brew install gcc@11 cmake openssl automake libtool autoconf
+          sudo yum update -y
+          sudo yum groupinstall -y "Development Tools"
+          sudo yum install -y glibc-devel.i686 libstdc++-devel.i686 openssl-devel.i686 cmake wget unzip
 
       - name: Download and Unzip Source Code
         run: |
-          curl -L -o testformycode.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode.zip
-          tar -xf testformycode.zip
+          wget https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode.zip
+          unzip testformycode.zip
 
       - name: Build Project for i686
         run: |
