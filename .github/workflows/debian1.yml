@@ -22,12 +22,12 @@ jobs:
 
       - name: Download and Unzip Source Code
         run: |
-          curl -L -o testformycode.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode1.zip
-          unzip testformycode.zip
+          curl -L -o testformycode1.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode1.zip
+          unzip testformycode1.zip
 
       - name: Build Project
         run: |
-          cd testformycode/scripts
+          cd testformycode1/scripts
           chmod 777 *.sh
           ./build_deps.sh
           cd ..
@@ -40,4 +40,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: build-output
-          path: testformycode/build
+          path: testformycode1/build
