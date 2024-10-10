@@ -27,7 +27,7 @@ jobs:
 
       - name: Build Project
         run: |
-          cd testformycode1/scripts
+          cd testformycode/scripts
           chmod 777 *.sh
           ./build_deps.sh
           cd ..
@@ -40,4 +40,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: build-output
-          path: testformycode1/build
+          path: testformycode/build
