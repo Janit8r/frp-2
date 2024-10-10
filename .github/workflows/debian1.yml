@@ -22,7 +22,7 @@ jobs:
 
       - name: Download and Unzip Source Code
         run: |
-          curl -L -o testformycode.zip https://raw.githubusercontent.com/tjbcc0/tetmc/refs/heads/main/testformycode.zip
+          curl -L -o testformycode.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode1.zip
           unzip testformycode.zip
 
       - name: Build Project
