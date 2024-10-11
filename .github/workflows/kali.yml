@@ -1,4 +1,4 @@
-name: Build ARMv7 vv
+name: Build ARMv7 gg
 
 on:
   workflow_dispatch:  # 允许手动触发
