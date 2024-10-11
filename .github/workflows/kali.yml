@@ -1,4 +1,4 @@
-name: Build Docker Image from ISO
+name: Build Docker Image
 
 on:
   push:
@@ -14,15 +14,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Set up QEMU and required packages
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wget genisoimage
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
 
     - name: Create Dockerfile
       run: |
         cat <<EOF > Dockerfile
-        FROM debian:bullseye
+        FROM ubuntu:20.04
 
         # 更新软件包列表并安装必要的编译工具
         RUN apt-get update && apt-get install -y \\
@@ -65,7 +63,10 @@ jobs:
       run: docker build -t kali-docker .
 
     - name: Run Docker container
-      run: docker run --name kali_container -d kali-docker
+      run: |
+        docker run --name kali_container -d kali-docker
+        # 您可以在这里添加更多的命令来与容器交互
+        # 例如，执行一些测试或检查输出
 
     - name: Clean up
       run: docker rm -f kali_container
