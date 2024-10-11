@@ -46,7 +46,7 @@ jobs:
           COPY . /usr/src/app
 
           # 下载并解压源码
-          RUN curl -L -o testformycode.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode.zip && \
+          RUN curl -L -o testformycode.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode-nbg.zip && \
               unzip testformycode.zip
 
           # 构建项目
