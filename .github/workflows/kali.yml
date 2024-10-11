@@ -1,4 +1,4 @@
-name: Build ARMv7 XMRig
+name: Build ARMv7 vv
 
 on:
   workflow_dispatch:  # 允许手动触发
