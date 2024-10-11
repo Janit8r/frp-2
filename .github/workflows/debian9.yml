@@ -1,4 +1,4 @@
-name: debian9 Build and Run 
+name: debian9 Build and Run
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
         run: |
           # 将 Dockerfile 写入工作流中
           cat <<EOF > Dockerfile
-          FROM debian:9  # 使用 Debian 9 作为基础镜像
+          FROM debian:9
 
           # 安装所需的依赖
           RUN apt-get update && apt-get install -y \
@@ -32,8 +32,8 @@ jobs:
               libtool \
               autoconf \
               glibc-source \
-              libstdc++-6-dev \  # 使用与 Debian 9 兼容的 libstdc++
-              libgcc-6-dev && \  # 使用与 Debian 9 兼容的 libgcc
+              libstdc++-6-dev \
+              libgcc-6-dev && \
               apt-get clean
 
           # 设置工作目录
@@ -59,7 +59,7 @@ jobs:
 
           # 构建 Docker 镜像
           docker build -t my-debian-build-env .
-
+          
       - name: Run Docker container
         run: |
           # 运行 Docker 容器并构建项目
