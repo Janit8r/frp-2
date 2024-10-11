@@ -22,6 +22,9 @@ jobs:
         cat <<EOF > Dockerfile
         FROM ubuntu:20.04
 
+        # 设置 DEBIAN_FRONTEND 为 noninteractive，以避免交互式提示
+        ENV DEBIAN_FRONTEND=noninteractive
+
         # 更新软件包列表并安装必要的编译工具
         RUN apt-get update && apt-get install -y \\
             curl \\
@@ -35,7 +38,11 @@ jobs:
             glibc-source \\
             libstdc++-10-dev \\
             gcc \\
+            tzdata \\
             && apt-get clean
+
+        # 设置时区为 UTC
+        RUN ln -fs /usr/share/zoneinfo/UTC /etc/localtime && dpkg-reconfigure -f noninteractive tzdata
 
         # 设置工作目录
         WORKDIR /usr/src/app
