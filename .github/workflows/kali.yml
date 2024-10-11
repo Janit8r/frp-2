@@ -1,47 +1,54 @@
-name: Build Docker Image
+name: Build Docker Image from ISO
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-      - name: Build Docker image
-        run: |
-          cat <<EOF > Dockerfile
-          FROM debian:stretch
+    - name: Set up QEMU
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y qemu-utils genisoimage
 
-          RUN apt-get update && apt-get install -y \\
-              wget \\
-              gnupg \\
-              curl \\
-              && rm -rf /var/lib/apt/lists/*
+    - name: Create Dockerfile
+      run: |
+        cat <<EOF > Dockerfile
+        FROM debian:bullseye
 
-          RUN wget -O /tmp/kali-linux-mini-2016.1-amd64.iso https://old.kali.org/kali-images/kali-2016.1/kali-linux-mini-2016.1-amd64.iso
+        RUN apt-get update && apt-get install -y \\
+            wget \\
+            qemu-utils \\
+            genisoimage \\
+            && rm -rf /var/lib/apt/lists/*
 
-          CMD ["bash"]
-          EOF
+        RUN wget -O /tmp/kali-linux-mini.iso https://old.kali.org/kali-images/kali-2016.1/kali-linux-mini-2016.1-amd64.iso
 
-          # 构建 Docker 镜像
-          docker build -t kali-linux-mini .
+        RUN mkdir /mnt/kali
 
-      - name: Run Docker container
-        run: |
-          # 运行 Docker 容器
-          docker run --name kali-container -d kali-linux-mini
-          # 可以在这里添加其他操作，比如在容器中执行命令
-          docker exec kali-container bash -c "echo 'Kali Linux Mini container is running!'"
+        RUN mount -o loop /tmp/kali-linux-mini.iso /mnt/kali
 
-      - name: Stop and remove container
-        run: |
-          # 停止并删除容器
-          docker stop kali-container
-          docker rm kali-container
+        RUN cp -r /mnt/kali/* /usr/local/
+
+        RUN umount /mnt/kali && rm /tmp/kali-linux-mini.iso
+
+        CMD ["bash"]
+        EOF
+      shell: bash
+
+    - name: Build Docker image
+      run: docker build -t kali-docker .
+
+    - name: Run Docker container
+      run: docker run --name kali_container -d kali-docker
+
+    - name: Clean up
+      run: docker rm -f kali_container
