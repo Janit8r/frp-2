@@ -57,7 +57,7 @@ jobs:
             libtool \\
             autoconf \\
             glibc-source \\
-            libstdc++-dev \\
+            libstdc++-10-dev \\  # 使用 libstdc++-10-dev
             gcc \\
             && apt-get clean
 
