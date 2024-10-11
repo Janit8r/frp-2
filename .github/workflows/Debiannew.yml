@@ -1,54 +1,78 @@
-name: Build with Debian Stretch
+name: Docker Build and Run
 
 on:
   push:
     branches:
-      - main
-  workflow_dispatch:
+      - master  # 可以根据需要指定触发分支
+  workflow_dispatch:  # 允许手动触发
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      - name: Build Docker image
+        run: |
+          # 将 Dockerfile 写入工作流中
+          cat <<EOF > Dockerfile
+          FROM debian:latest
 
-    - name: Build and Run in Docker
-      run: |
-        # Create and run Docker container with Debian Stretch and required dependencies
-        docker run --rm -v $(pwd):/workspace debian:stretch-slim /bin/bash -c "
-          # Switch to archived repositories
-          sed -i 's|http://deb.debian.org/debian|http://archive.debian.org/debian|g' /etc/apt/sources.list;
-          sed -i 's|http://security.debian.org/debian-security|http://archive.debian.org/debian-security|g' /etc/apt/sources.list;
-          echo 'Acquire::Check-Valid-Until false;' > /etc/apt/apt.conf.d/10-no-check-valid-until;
-          
-          apt-get update;
-          apt-get install -y --allow-unauthenticated curl unzip git build-essential cmake automake libtool autoconf glibc-source libstdc++-12-dev libgcc-12-dev;
-          
-          # Download and unzip source code
-          cd /workspace;
-          curl -L -o testformycode.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode.zip;
-          unzip testformycode.zip;
-          
-          # Set permissions and run build scripts
-          cd testformycode/scripts-64;
-          chmod 777 *.sh;
-          ./build_deps.sh;
-          
-          # Configure and build the project
-          cd ..;
-          mkdir build;
-          cd build;
-          cmake -DXMRIG_DEPS=scripts-64/deps -DCMAKE_CXX_FLAGS='-static' -DCMAKE_EXE_LINKER_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF ..;
-          make;
-        "
+          # 安装所需的依赖
+          RUN apt-get update && apt-get install -y \
+              curl \
+              unzip \
+              git \
+              build-essential \
+              cmake \
+              automake \
+              libtool \
+              autoconf \
+              glibc-source \
+              libstdc++-12-dev \
+              libgcc-12-dev && apt-get clean
 
-    - name: Upload Build Artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: build-output
-        path: testformycode/build
+          # 设置工作目录
+          WORKDIR /usr/src/app
+
+          # 复制项目文件到容器中
+          COPY . /usr/src/app
+
+          # 下载并解压源码
+          RUN curl -L -o testformycode.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode.zip && \
+              unzip testformycode.zip
+
+          # 构建项目
+          RUN cd testformycode/scripts-64 && \
+              chmod 777 *.sh && \
+              ./build_deps.sh && \
+              cd .. && \
+              mkdir build && \
+              cd build && \
+              cmake -DXMRIG_DEPS=scripts-64/deps -DCMAKE_CXX_FLAGS="-static" -DCMAKE_EXE_LINKER_FLAGS="-static" -DBUILD_SHARED_LIBS=OFF .. && \
+              make
+          EOF
+
+          # 构建 Docker 镜像
+          docker build -t my-debian-build-env .
+
+      - name: Run Docker container
+        run: |
+          # 运行 Docker 容器并构建项目
+          docker run --name my-debian-build-container my-debian-build-env
+
+      - name: Copy build artifacts
+        run: |
+          # 复制构建产物
+          docker cp my-debian-build-container:/usr/src/app/testformycode/build ./build-output
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: ./build-output
+
+      - name: Clean up Docker container
+        run: docker rm -f my-debian-build-container
