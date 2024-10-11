@@ -38,6 +38,7 @@ jobs:
             glibc-source \\
             libstdc++-10-dev \\
             gcc \\
+            wget \\
             tzdata \\
             && apt-get clean
 
