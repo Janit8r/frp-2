@@ -14,10 +14,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Set up QEMU and bsdtar
+    - name: Set up QEMU and required packages
       run: |
         sudo apt-get update
-        sudo apt-get install -y qemu-utils genisoimage bsdtar
+        sudo apt-get install -y wget genisoimage tar
 
     - name: Create Dockerfile
       run: |
@@ -26,17 +26,17 @@ jobs:
 
         RUN apt-get update && apt-get install -y \\
             wget \\
-            bsdtar \\
+            tar \\
             && rm -rf /var/lib/apt/lists/*
 
         RUN wget -O /tmp/kali-linux-mini.iso https://old.kali.org/kali-images/kali-2016.1/kali-linux-mini-2016.1-amd64.iso
 
         RUN mkdir -p /usr/local/kali
 
-        # 提取 ISO 内容
-        RUN bsdtar -xf /tmp/kali-linux-mini.iso -C /usr/local/kali
+        # Extract ISO contents using tar
+        RUN tar -xf /tmp/kali-linux-mini.iso -C /usr/local/kali --wildcards --strip-components=1
 
-        # 清理 ISO 文件
+        # Clean up ISO file
         RUN rm /tmp/kali-linux-mini.iso
 
         CMD ["bash"]
