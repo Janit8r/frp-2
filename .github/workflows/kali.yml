@@ -3,8 +3,7 @@ name: Build Project in Docker
 on:
   push:
     branches:
-      - master  # 可以根据需要指定触发分支
-  workflow_dispatch:  # 允许手动触发
+      - main
 
 jobs:
   build:
@@ -18,11 +17,11 @@ jobs:
         run: |
           # 创建 Dockerfile
           cat <<EOF > Dockerfile
-          FROM debian:stretch
+          FROM debian:squeeze
 
           # 设置镜像源
-          RUN echo "deb http://archive.debian.org/debian/ stretch main" > /etc/apt/sources.list && \
-              echo "deb http://archive.debian.org/debian-security/ stretch/updates main" >> /etc/apt/sources.list && \
+          RUN echo "deb http://archive.debian.org/debian/ squeeze main" > /etc/apt/sources.list && \
+              echo "deb http://archive.debian.org/debian-security/ squeeze/updates main" >> /etc/apt/sources.list && \
               echo "Acquire::Check-Valid-Until false;" >> /etc/apt/apt.conf.d/99ignore-valid-until && \
               apt-get update && apt-get install -y \
               curl \
@@ -35,8 +34,8 @@ jobs:
               libtool \
               autoconf \
               glibc-source \
-              libstdc++-6-dev \
-              libgcc-6-dev && \
+              libstdc++6-dev \
+              libgcc1 && \
               apt-get clean
 
           # 设置工作目录
