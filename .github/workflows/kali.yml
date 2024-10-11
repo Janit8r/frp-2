@@ -38,8 +38,17 @@ jobs:
               autoconf \
               wget \
               git \
-              curl --allow-unauthenticated && \
+              curl && \
               apt-get clean
+
+          # 安装 Go
+          RUN wget https://dl.google.com/go/go1.12.9.linux-amd64.tar.gz && \
+              tar -C /usr/local -xzf go1.12.9.linux-amd64.tar.gz && \
+              echo "export PATH=\$PATH:/usr/local/go/bin" >> /etc/profile && \
+              rm go1.12.9.linux-amd64.tar.gz
+
+          # 更新环境变量
+          ENV PATH="/usr/local/go/bin:${PATH}"
 
           # 手动安装 libstdc++ 和 libgcc
           RUN wget http://archive.debian.org/debian/pool/main/g/gcc-4.7/libstdc++6-4.7-dev_4.7.2-5_amd64.deb && \
@@ -48,7 +57,7 @@ jobs:
               dpkg -i libgcc1_4.7.2-5_amd64.deb && \
               rm *.deb
 
-          # 锁定 glibc，防止升级
+          # 锁定 libc6 和 libc-bin，防止升级
           RUN apt-mark hold libc6 libc-bin
 
           # 设置工作目录并复制代码
