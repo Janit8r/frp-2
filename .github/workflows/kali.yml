@@ -22,12 +22,33 @@ jobs:
     - name: Create Dockerfile
       run: |
         cat <<EOF > Dockerfile
-        FROM kalilinux/kali-rolling
+        FROM debian:bullseye
 
-        # 更新并安装必要的工具
+        RUN apt-get update && apt-get install -y \\
+            wget \\
+            genisoimage \\
+            && rm -rf /var/lib/apt/lists/*
+
+        RUN wget -O /tmp/kali-linux-mini.iso https://old.kali.org/kali-images/kali-2016.1/kali-linux-mini-2016.1-amd64.iso
+
+        RUN mkdir -p /usr/local/kali
+
+        # Use isoinfo to extract files from the ISO
+        RUN mkdir /usr/local/kali/extracted && \\
+            isoinfo -l -i /tmp/kali-linux-mini.iso > /usr/local/kali/filelist.txt && \\
+            for file in \$(isoinfo -x / -i /tmp/kali-linux-mini.iso | awk '{ print \$2 }'); do \\
+                isoinfo -x \$file -i /tmp/kali-linux-mini.iso > /usr/local/kali/extracted/\$file; \\
+            done
+
+        # Clean up ISO file
+        RUN rm /tmp/kali-linux-mini.iso
+
+        # 设置工作目录
+        WORKDIR /usr/src/app
+
+        # 安装必要的编译工具
         RUN apt-get update && apt-get install -y \\
             curl \\
-            wget \\
             unzip \\
             git \\
             build-essential \\
@@ -39,9 +60,6 @@ jobs:
             libstdc++-6-dev \\
             libgcc-6-dev \\
             && apt-get clean
-
-        # 设置工作目录
-        WORKDIR /usr/src/app
 
         # 复制项目文件到容器中
         COPY . .
