@@ -57,8 +57,8 @@ jobs:
             libtool \\
             autoconf \\
             glibc-source \\
-            libstdc++-6-dev \\
-            libgcc-6-dev \\
+            libstdc++-dev \\  # 更改为 libstdc++-dev
+            gcc \\            # 更改为 gcc
             && apt-get clean
 
         # 复制项目文件到容器中
@@ -100,4 +100,4 @@ jobs:
     - name: Clean up
       run: |
         # 停止并删除容器
-        docker rm -f kali_container
+        docker rm -f kali_contai
