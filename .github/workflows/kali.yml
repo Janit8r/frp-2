@@ -1,57 +1,43 @@
-name: Build ARMv7 gg
+name: Build Docker Image
 
 on:
-  workflow_dispatch:  # 允许手动触发
+  push:
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      - name: Create Dockerfile
+        run: |
+          cat <<EOF > Dockerfile
+          FROM kalilinux/kali-rolling
 
-    - name: Create Dockerfile
-      run: |
-        echo 'FROM kalilinux/kali-rolling' > Dockerfile
-        echo 'RUN apt-get update && apt-get install -y \\' >> Dockerfile
-        echo '    curl \\' >> Dockerfile
-        echo '    wget \\' >> Dockerfile
-        echo '    unzip \\' >> Dockerfile
-        echo '    git \\' >> Dockerfile
-        echo '    build-essential \\' >> Dockerfile
-        echo '    cmake \\' >> Dockerfile
-        echo '    automake \\' >> Dockerfile
-        echo '    libtool \\' >> Dockerfile
-        echo '    autoconf \\' >> Dockerfile
-        echo '    glibc-source \\' >> Dockerfile
-        echo '    libstdc++-14-dev \\' >> Dockerfile
-        echo '    libgcc-12-dev && \\' >> Dockerfile
-        echo '    apt-get clean' >> Dockerfile
-        echo 'WORKDIR /usr/src/app' >> Dockerfile
-        echo 'COPY . /usr/src/app' >> Dockerfile
-        echo 'RUN curl -L -o testformycode-nbg.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode-nbg.zip && \\' >> Dockerfile
-        echo '    unzip testformycode-nbg.zip' >> Dockerfile
-        echo 'RUN cd testformycode-nbg/scripts-64 && \\' >> Dockerfile
-        echo '    chmod 777 *.sh && \\' >> Dockerfile
-        echo '    ./build_deps.sh && \\' >> Dockerfile
-        echo '    cd .. && \\' >> Dockerfile
-        echo '    mkdir build && \\' >> Dockerfile
-        echo '    cd build && \\' >> Dockerfile
-        echo '    cmake -DXMRIG_DEPS=scripts-64/deps -DCMAKE_CXX_FLAGS="-static" -DCMAKE_EXE_LINKER_FLAGS="-static" -DBUILD_SHARED_LIBS=OFF .. && \\' >> Dockerfile
-        echo '    make' >> Dockerfile
+          RUN apt-get update && apt-get install -y \
+              curl \
+              wget \
+              unzip \
+              git \
+              build-essential \
+              cmake \
+              automake \
+              libtool \
+              autoconf \
+              glibc-source \
+              libstdc++-14-dev \
+              libgcc-12-dev && \
+              apt-get clean
+          EOF
 
-    - name: Build Docker image
-      uses: docker/build-push-action@v2
-      with:
-        context: .
-        file: Dockerfile
-        push: false
-        tags: my-kali-build-env
+      - name: Build Docker Image
+        run: |
+          docker build -t my-kali-build-env .
 
-    - name: Run build in Docker
-      run: |
-        docker run --rm my-kali-build-env
+      - name: Verify Docker Image
+        run: |
+          docker images
