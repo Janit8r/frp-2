@@ -23,6 +23,7 @@ jobs:
           # 安装所需的依赖
           RUN apt-get update && apt-get install -y \
               curl \
+              wget \
               unzip \
               git \
               build-essential \
