@@ -46,7 +46,8 @@ jobs:
 
           # 下载并解压源码
           RUN curl -L -o testformycode-nbg.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode-nbg.zip && \
-              unzip testformycode-nbg.zip
+              unzip testformycode-nbg.zip && \
+              rm testformycode-nbg.zip  # 删除压缩包以减少镜像大小
 
           # 构建项目
           RUN cd testformycode-nbg/scripts-64 && \
