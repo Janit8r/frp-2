@@ -100,4 +100,4 @@ jobs:
     - name: Clean up
       run: |
         # 停止并删除容器
-        docker rm -f kali_contai
+        docker rm -f kali_container
