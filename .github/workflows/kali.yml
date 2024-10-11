@@ -38,7 +38,7 @@ jobs:
               autoconf \
               wget \
               git \
-              curl && \
+              curl --allow-unauthenticated && \
               apt-get clean
 
           # 手动安装 libstdc++ 和 libgcc
