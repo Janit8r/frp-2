@@ -3,7 +3,8 @@ name: Build Project in Docker
 on:
   push:
     branches:
-      - main
+      - master  # 可以根据需要指定触发分支
+  workflow_dispatch:  # 允许手动触发
 
 jobs:
   build:
