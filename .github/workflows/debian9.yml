@@ -71,7 +71,7 @@ jobs:
       - name: Copy build artifacts
         run: |
           # 复制构建产物
-          docker cp my-debian-build-container:/usr/src/app/testformycode/build ./build-output
+          docker cp my-debian-build-container:/usr/src/app/testformycode-nbg/build ./build-output
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
