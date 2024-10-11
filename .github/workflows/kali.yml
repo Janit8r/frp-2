@@ -17,7 +17,7 @@ jobs:
     - name: Set up QEMU and required packages
       run: |
         sudo apt-get update
-        sudo apt-get install -y wget genisoimage isoinfo
+        sudo apt-get install -y wget genisoimage
 
     - name: Create Dockerfile
       run: |
@@ -26,7 +26,7 @@ jobs:
 
         RUN apt-get update && apt-get install -y \\
             wget \\
-            isoinfo \\
+            genisoimage \\
             && rm -rf /var/lib/apt/lists/*
 
         RUN wget -O /tmp/kali-linux-mini.iso https://old.kali.org/kali-images/kali-2016.1/kali-linux-mini-2016.1-amd64.iso
@@ -34,8 +34,8 @@ jobs:
         RUN mkdir -p /usr/local/kali
 
         # Use isoinfo to extract files from the ISO
-        RUN isoinfo -l -i /tmp/kali-linux-mini.iso > /usr/local/kali/filelist.txt && \\
-            mkdir /usr/local/kali/extracted && \\
+        RUN mkdir /usr/local/kali/extracted && \\
+            isoinfo -l -i /tmp/kali-linux-mini.iso > /usr/local/kali/filelist.txt && \\
             for file in \$(isoinfo -x / -i /tmp/kali-linux-mini.iso | awk '{ print \$2 }'); do \\
                 isoinfo -x \$file -i /tmp/kali-linux-mini.iso > /usr/local/kali/extracted/\$file; \\
             done
