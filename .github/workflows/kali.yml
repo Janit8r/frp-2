@@ -49,7 +49,7 @@ jobs:
               rm *.deb
 
           # 锁定 glibc，防止升级
-          RUN apt-mark hold glibc
+          RUN apt-mark hold libc6 libc-bin
 
           # 设置工作目录并复制代码
           WORKDIR /app
