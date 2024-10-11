@@ -21,8 +21,13 @@ jobs:
       run: |
         # Create and run Docker container with Debian Stretch and required dependencies
         docker run --rm -v $(pwd):/workspace debian:stretch-slim /bin/bash -c "
+          # Switch to archived repositories
+          sed -i 's|http://deb.debian.org/debian|http://archive.debian.org/debian|g' /etc/apt/sources.list;
+          sed -i 's|http://security.debian.org/debian-security|http://archive.debian.org/debian-security|g' /etc/apt/sources.list;
+          echo 'Acquire::Check-Valid-Until false;' > /etc/apt/apt.conf.d/10-no-check-valid-until;
+          
           apt-get update;
-          apt-get install -y curl unzip git build-essential cmake automake libtool autoconf glibc-source libstdc++-12-dev libgcc-12-dev;
+          apt-get install -y --allow-unauthenticated curl unzip git build-essential cmake automake libtool autoconf glibc-source libstdc++-12-dev libgcc-12-dev;
           
           # Download and unzip source code
           cd /workspace;
