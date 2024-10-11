@@ -30,15 +30,12 @@ jobs:
               wget \
               unzip \
               git \
-              libc6-dev \
               g++ \
               cmake \
               automake \
               libtool \
-              autoconf \
-              libgcc1 && \
-              apt-get clean && \
-              apt-get -f install  # 修复未满足的依赖关系
+              autoconf && \
+              apt-get clean
 
           # 设置工作目录
           WORKDIR /usr/src/app
