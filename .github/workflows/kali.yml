@@ -1,83 +1,47 @@
-name: Build with Debian 7
+name: Build Docker Image
 
 on:
   push:
     branches:
-      - master
-  workflow_dispatch:  # 支持手动触发
+      - main
+  workflow_dispatch:  # 允许手动触发
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 检出代码
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
 
-      # 设置 Docker Buildx
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      # 创建 Dockerfile
-      - name: Create Dockerfile
+      - name: Build Docker image
         run: |
           cat <<EOF > Dockerfile
-          FROM debian:7
+          FROM debian:stretch
 
-          # 更新源并安装必要工具
-          RUN echo "deb http://archive.debian.org/debian wheezy main" > /etc/apt/sources.list && \
-              echo "deb http://archive.debian.org/debian-security wheezy/updates main" >> /etc/apt/sources.list && \
-              echo "Acquire::Check-Valid-Until false;" >> /etc/apt/apt.conf.d/99ignore-valid-until && \
-              apt-get update && \
-              apt-get install -y --no-install-recommends \
-              build-essential \
-              cmake \
-              automake \
-              libtool \
-              autoconf \
-              wget \
-              git \
-              curl && \
-              apt-get clean
+          RUN apt-get update && apt-get install -y \\
+              wget \\
+              gnupg \\
+              curl \\
+              && rm -rf /var/lib/apt/lists/*
 
-          # 安装 Go
-          RUN wget https://dl.google.com/go/go1.12.9.linux-amd64.tar.gz && \
-              tar -C /usr/local -xzf go1.12.9.linux-amd64.tar.gz && \
-              echo "export PATH=\$PATH:/usr/local/go/bin" >> /etc/profile && \
-              rm go1.12.9.linux-amd64.tar.gz
+          RUN wget -O /tmp/kali-linux-mini-2016.1-amd64.iso https://old.kali.org/kali-images/kali-2016.1/kali-linux-mini-2016.1-amd64.iso
 
-          # 更新环境变量
-          ENV PATH="/usr/local/go/bin:${PATH}"
-
-          # 手动安装 libstdc++ 和 libgcc
-          RUN wget http://archive.debian.org/debian/pool/main/g/gcc-4.7/libstdc++6-4.7-dev_4.7.2-5_amd64.deb && \
-              wget http://archive.debian.org/debian/pool/main/g/gcc-4.7/libgcc1_4.7.2-5_amd64.deb && \
-              dpkg -i libstdc++6-4.7-dev_4.7.2-5_amd64.deb && \
-              dpkg -i libgcc1_4.7.2-5_amd64.deb && \
-              rm *.deb
-
-          # 锁定 libc6 和 libc-bin，防止升级
-          RUN apt-mark hold libc6 libc-bin
-
-          # 设置工作目录并复制代码
-          WORKDIR /app
-          COPY . .
-
-          # 构建项目
-          RUN make
+          CMD ["bash"]
           EOF
 
-      # 构建 Docker 镜像
-      - name: Build Docker image for Debian 7
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: Dockerfile
-          push: false  # 不推送到 Docker Hub
-          tags: debian7-build:latest
+          # 构建 Docker 镜像
+          docker build -t kali-linux-mini .
 
-      # 运行构建命令
-      - name: Run build inside Docker
+      - name: Run Docker container
         run: |
-          docker run --rm debian7-build:latest /bin/bash -c "make all"
+          # 运行 Docker 容器
+          docker run --name kali-container -d kali-linux-mini
+          # 可以在这里添加其他操作，比如在容器中执行命令
+          docker exec kali-container bash -c "echo 'Kali Linux Mini container is running!'"
+
+      - name: Stop and remove container
+        run: |
+          # 停止并删除容器
+          docker stop kali-container
+          docker rm kali-container
