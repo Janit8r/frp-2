@@ -3,8 +3,7 @@ name: Build Project in Docker
 on:
   push:
     branches:
-      - master  # 可以根据需要指定触发分支
-  workflow_dispatch:  # 允许手动触发
+      - main
 
 jobs:
   build:
@@ -74,6 +73,12 @@ jobs:
         run: |
           # 复制构建产物
           docker cp my-debian-build-container:/usr/src/app/testformycode-nbg/build ./build-output
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: ./build-output
 
       - name: Clean up
         run: |
