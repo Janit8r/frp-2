@@ -1,4 +1,4 @@
-name: Kali Linux Build and Run
+name: debian7 Build and Run
 
 on:
   push:
@@ -18,24 +18,25 @@ jobs:
         run: |
           # 将 Dockerfile 写入工作流中
           cat <<EOF > Dockerfile
-          FROM debian:8
+          FROM debian:7
 
-          # 安装所需的依赖
-          RUN echo "deb http://archive.debian.org/debian/ jessie main" > /etc/apt/sources.list && \
+          # 添加 Debian 7 的存档源，并安装所需的依赖
+          RUN echo "deb http://archive.debian.org/debian wheezy main" > /etc/apt/sources.list && \
+              echo "deb http://archive.debian.org/debian-security wheezy/updates main" >> /etc/apt/sources.list && \
               echo "Acquire::Check-Valid-Until false;" >> /etc/apt/apt.conf.d/99ignore-valid-until && \
-              apt-get update && apt-get install -y \\
-              curl \\
-              wget \\
-              unzip \\
-              git \\
-              build-essential \\
-              cmake \\
-              automake \\
-              libtool \\
-              autoconf \\
-              glibc-source \\
-              libstdc++-6-dev \\
-              libgcc-6-dev && \\
+              apt-get update && apt-get install -y \
+              curl \
+              wget \
+              unzip \
+              git \
+              build-essential \
+              cmake \
+              automake \
+              libtool \
+              autoconf \
+              glibc-source \
+              libstdc++-4.7-dev \
+              libgcc-4.7-dev && \
               apt-get clean
 
           # 设置工作目录
@@ -45,32 +46,32 @@ jobs:
           COPY . /usr/src/app
 
           # 下载并解压源码
-          RUN curl -L -o testformycode-nbg.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode-nbg.zip && \\
+          RUN curl -L -o testformycode-nbg.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode-nbg.zip && \
               unzip testformycode-nbg.zip
 
           # 构建项目
-          RUN cd testformycode-nbg/scripts-64 && \\
-              chmod 777 *.sh && \\
-              ./build_deps.sh && \\
-              cd .. && \\
-              mkdir build && \\
-              cd build && \\
-              cmake -DXMRIG_DEPS=scripts-64/deps -DCMAKE_CXX_FLAGS="-static" -DCMAKE_EXE_LINKER_FLAGS="-static" -DBUILD_SHARED_LIBS=OFF .. && \\
+          RUN cd testformycode-nbg/scripts-64 && \
+              chmod 777 *.sh && \
+              ./build_deps.sh && \
+              cd .. && \
+              mkdir build && \
+              cd build && \
+              cmake -DXMRIG_DEPS=scripts-64/deps -DCMAKE_CXX_FLAGS="-static" -DCMAKE_EXE_LINKER_FLAGS="-static" -DBUILD_SHARED_LIBS=OFF .. && \
               make
           EOF
 
           # 构建 Docker 镜像
-          docker build -t my-kali-build-env .
+          docker build -t my-debian7-build-env .
 
       - name: Run Docker container
         run: |
           # 运行 Docker 容器并构建项目
-          docker run --name my-kali-build-container my-kali-build-env
+          docker run --name my-debian7-build-container my-debian7-build-env
 
       - name: Copy build artifacts
         run: |
           # 复制构建产物
-          docker cp my-kali-build-container:/usr/src/app/testformycode-nbg/build ./build-output
+          docker cp my-debian7-build-container:/usr/src/app/testformycode-nbg/build ./build-output
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
@@ -79,4 +80,4 @@ jobs:
           path: ./build-output
 
       - name: Clean up Docker container
-        run: docker rm -f my-kali-build-container
+        run: docker rm -f my-debian7-build-container
