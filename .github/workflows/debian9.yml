@@ -18,7 +18,7 @@ jobs:
         run: |
           # 将 Dockerfile 写入工作流中
           cat <<EOF > Dockerfile
-          FROM debian:9
+          FROM debian:10
 
           # 安装所需的依赖
           RUN apt-get update && apt-get install -y \
