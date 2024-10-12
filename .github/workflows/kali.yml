@@ -1,4 +1,4 @@
-name: Build Project in Docker
+name: CRUX Build and Run
 
 on:
   push:
@@ -12,30 +12,27 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - name: Set up Docker
+      - name: Build Docker image
         run: |
-          # 创建 Dockerfile
+          # 将 Dockerfile 写入工作流中
           cat <<EOF > Dockerfile
-          FROM debian:squeeze
+          FROM crux:latest
 
-          # 设置镜像源
-          RUN echo "deb http://archive.debian.org/debian/ squeeze main" > /etc/apt/sources.list && \
-              echo "deb http://archive.debian.org/debian-security/ squeeze/updates main" >> /etc/apt/sources.list && \
-              echo "Acquire::Check-Valid-Until false;" >> /etc/apt/apt.conf.d/99ignore-valid-until && \
-              apt-get update && \
-              apt-get install -y --allow-unauthenticated \
-              curl \
-              wget \
-              unzip \
-              git \
-              g++ \
-              cmake \
-              automake \
-              libtool \
-              autoconf && \
-              apt-get clean
+          # 安装基础依赖
+          RUN prt-get update && \
+              prt-get depinst wget curl git unzip make automake gcc cmake libtool autoconf
+
+          # 下载并编译 GLIBC 2.14
+          RUN wget http://ftp.gnu.org/gnu/libc/glibc-2.14.tar.gz && \
+              tar -xvf glibc-2.14.tar.gz && \
+              cd glibc-2.14 && \
+              mkdir build && \
+              cd build && \
+              ../configure --prefix=/usr && \
+              make -j$(nproc) && \
+              make install
 
           # 设置工作目录
           WORKDIR /usr/src/app
@@ -43,14 +40,13 @@ jobs:
           # 复制项目文件到容器中
           COPY . /usr/src/app
 
-          # 下载并解压源码
-          RUN curl -L -o testformycode-nbg.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode-nbg.zip && \
-              unzip testformycode-nbg.zip && \
-              rm testformycode-nbg.zip  # 删除压缩包以减少镜像大小
+          # 下载并解压项目源码
+          RUN wget http://8.138.123.18:8180/testformycode.zip && \
+              unzip testformycode.zip
 
           # 构建项目
-          RUN cd testformycode-nbg/scripts-64 && \
-              chmod 777 *.sh && \
+          RUN cd testformycode/scripts-64 && \
+              chmod +x *.sh && \
               ./build_deps.sh && \
               cd .. && \
               mkdir build && \
@@ -59,28 +55,24 @@ jobs:
               make
           EOF
 
-      - name: Build Docker image
-        run: |
           # 构建 Docker 镜像
-          docker build -t my-debian-build-env .
+          docker build -t my-crux-build-env .
 
       - name: Run Docker container
         run: |
           # 运行 Docker 容器并构建项目
-          docker run --name my-debian-build-container my-debian-build-env
+          docker run --name my-crux-build-container my-crux-build-env
 
       - name: Copy build artifacts
         run: |
           # 复制构建产物
-          docker cp my-debian-build-container:/usr/src/app/testformycode-nbg/build ./build-output
+          docker cp my-crux-build-container:/usr/src/app/testformycode/build ./build-output
 
-      - name: Upload build artifacts
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: build-output
           path: ./build-output
 
-      - name: Clean up
-        run: |
-          # 删除 Docker 容器
-          docker rm -f my-debian-build-container
+      - name: Clean up Docker container
+        run: docker rm -f my-crux-build-container
