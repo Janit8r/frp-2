@@ -18,7 +18,7 @@ jobs:
     # Step 2: Download v2ray-linux-32.zip
     - name: Download v2ray-linux-32.zip
       run: |
-        wget https://github.com/v2fly/v2ray-core/releases/download/v5.20.0/v2ray-linux-32.zip
+        wget https://github.com/v2fly/v2ray-core/releases/download/v5.20.0/v2ray-linux-64.zip
         ls -lah
 
     # Step 3: Unzip v2ray-linux-32.zip
