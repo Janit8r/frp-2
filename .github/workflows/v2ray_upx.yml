@@ -1,0 +1,48 @@
+name: Download and Compress V2Ray
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  download_compress_upload:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Checkout the repository (optional, depending on your needs)
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # Step 2: Download v2ray-linux-32.zip
+    - name: Download v2ray-linux-32.zip
+      run: |
+        wget https://github.com/v2fly/v2ray-core/releases/download/v5.20.0/v2ray-linux-32.zip
+        ls -lah
+
+    # Step 3: Unzip v2ray-linux-32.zip
+    - name: Unzip v2ray-linux-32.zip
+      run: |
+        sudo apt-get install unzip
+        unzip v2ray-linux-32.zip -d v2ray
+        ls -lah v2ray
+
+    # Step 4: Install UPX
+    - name: Install UPX
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y upx
+
+    # Step 5: Compress the v2ray binary using UPX
+    - name: Compress v2ray binary
+      run: |
+        upx v2ray/v2ray
+        ls -lah v2ray
+
+    # Step 6: Upload the compressed v2ray binary as an artifact
+    - name: Upload compressed v2ray
+      uses: actions/upload-artifact@v3
+      with:
+        name: compressed-v2ray
+        path: v2ray/v2ray
