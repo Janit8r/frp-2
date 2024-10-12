@@ -36,7 +36,12 @@ jobs:
               autoconf \
               glibc-source \
               libstdc++-6-dev:i386 \
-              libgcc-6-dev:i386 && \
+              libgcc-6-dev:i386 \
+              gcc-multilib \
+              g++-multilib \
+              libc6-dev-i386 \
+              lib32gcc-6-dev \
+              lib32stdc++-6-dev && \
               apt-get clean
           # 设置工作目录
           WORKDIR /usr/src/app
