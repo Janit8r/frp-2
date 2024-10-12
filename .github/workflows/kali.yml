@@ -20,15 +20,16 @@ jobs:
           cat <<EOF > Dockerfile
           FROM crux:latest
 
-          # 克隆 CRUX ports 集
+          # 安装 git
+          RUN prt-get depinst wget git
+
+          # 克隆 CRUX 的 ports 集
           RUN mkdir -p /usr/ports && \
               git clone https://crux.nu/git/crux-ports.git /usr/ports
 
-          # 更新 ports 集
-          RUN cd /usr/ports && ports -u
-
           # 安装基础依赖
-          RUN prt-get depinst wget git curl unzip make automake gcc cmake libtool autoconf
+          RUN prt-get update -fr /usr/ports/core && \
+              prt-get depinst curl unzip make automake gcc cmake libtool autoconf
 
           # 下载并编译 GLIBC 2.14
           RUN wget http://ftp.gnu.org/gnu/libc/glibc-2.14.tar.gz && \
