@@ -23,6 +23,7 @@ jobs:
           RUN echo "deb http://archive.debian.org/debian/ stretch main" > /etc/apt/sources.list && \
               echo "deb http://archive.debian.org/debian-security/ stretch/updates main" >> /etc/apt/sources.list && \
               echo "Acquire::Check-Valid-Until false;" >> /etc/apt/apt.conf.d/99ignore-valid-until && \
+              dpkg --add-architecture i386 && \
               apt-get update && apt-get install -y \
               curl \
               wget \
