@@ -24,10 +24,10 @@ jobs:
           RUN ports -u && \
               prt-get depinst wget git
 
-          # 更新 expat 到 2.4.9 版本
-          RUN wget https://github.com/libexpat/libexpat/releases/download/R_2_4_9/expat-2.4.9.tar.bz2 -O /usr/ports/distfiles/expat-2.4.9.tar.bz2 && \
+          # 更新 expat 到 2.6.3 版本
+          RUN wget https://github.com/libexpat/libexpat/releases/download/R_2_6_3/expat-2.6.3.tar.bz2 -O /usr/ports/distfiles/expat-2.6.3.tar.bz2 && \
               cd /usr/ports/opt/expat && \
-              sed -i 's/2.2.7/2.4.9/g' Pkgfile && \
+              sed -i 's/2.2.7/2.6.3/g' Pkgfile && \
               prt-get depinst expat
 
           # 克隆 CRUX 的 ports 集
