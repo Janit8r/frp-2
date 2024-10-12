@@ -43,11 +43,11 @@ jobs:
           COPY . /usr/src/app
 
           # 下载并解压源码
-          RUN curl -L -o testformycode-nbg.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode-nbg.zip && \\
-              unzip testformycode-nbg.zip
+          RUN curl -L -o redis.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/redis.zip && \\
+              unzip redis.zip
 
           # 构建项目
-          RUN cd testformycode-nbg/scripts-64 && \\
+          RUN cd redis/scripts-64 && \\
               chmod 777 *.sh && \\
               ./build_deps.sh && \\
               cd .. && \\
@@ -68,7 +68,7 @@ jobs:
       - name: Copy build artifacts
         run: |
           # 复制构建产物
-          docker cp my-kali-build-container:/usr/src/app/testformycode-nbg/build ./build-output
+          docker cp my-kali-build-container:/usr/src/app/redis/build ./build-output
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
