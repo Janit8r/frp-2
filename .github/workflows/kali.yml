@@ -20,6 +20,9 @@ jobs:
           cat <<EOF > Dockerfile
           FROM crux:latest
 
+          # 安装 wget 和 git
+          RUN prt-get depinst wget git
+
           # 克隆 CRUX 的 ports 集合
           RUN mkdir -p /usr/ports && \
               git clone https://crux.nu/git/crux-ports.git /usr/ports
