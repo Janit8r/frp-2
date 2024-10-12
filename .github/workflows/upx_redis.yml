@@ -1,4 +1,4 @@
-name: Kali Linux Build and Run
+name: Kali Linux Build and Run upx
 
 on:
   push:
