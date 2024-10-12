@@ -1,6 +1,7 @@
 name: Build WebSocket Client
 
 on:
+  workflow_dispatch:  # 手动触发工作流
   push:
     branches:
       - main  # 或您要监视的其他分支
@@ -24,11 +25,9 @@ jobs:
           # 克隆 websocketpp
           git clone https://github.com/zaphoyd/websocketpp.git
           
-      - name: Compile WebSocket Client
+      - name: Create source file
         run: |
-          # 创建源代码文件
-          cat << EOF > websocket_client.cpp
-#include <iostream>
+          echo '#include <iostream>
 #include <string>
 #include <websocketpp/config/asio_no_tls.hpp>
 #include <websocketpp/client.hpp>
@@ -69,9 +68,7 @@ int main() {
     ws_client.connect(conn);
     ws_client.run();
 
-    return 0;
-}
-EOF
+    return 0;' > websocket_client.cpp
 
           # 编译客户端
           g++ -std=c++11 -o websocket_client websocket_client.cpp -I./websocketpp -lboost_system -lpthread
