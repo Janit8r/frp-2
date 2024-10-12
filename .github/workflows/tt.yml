@@ -28,47 +28,47 @@ jobs:
       - name: Create source file
         run: |
           echo '#include <iostream>
-#include <string>
-#include <websocketpp/config/asio_no_tls.hpp>
-#include <websocketpp/client.hpp>
+          #include <string>
+          #include <websocketpp/config/asio_no_tls.hpp>
+          #include <websocketpp/client.hpp>
 
-using websocketpp::client;
-using websocketpp::connection_hdl;
+          using websocketpp::client;
+          using websocketpp::connection_hdl;
 
-typedef client<websocketpp::config::asio> websocket_client;
+          typedef client<websocketpp::config::asio> websocket_client;
 
-void on_open(websocket_client* ws_client, connection_hdl hdl) {
-    std::cout << "Connected to server" << std::endl;
-}
+          void on_open(websocket_client* ws_client, connection_hdl hdl) {
+              std::cout << "Connected to server" << std::endl;
+          }
 
-void on_message(websocket_client* ws_client, connection_hdl hdl, websocket_client::message_ptr msg) {
-    std::cout << "Received message: " << msg->get_payload() << std::endl;
-}
+          void on_message(websocket_client* ws_client, connection_hdl hdl, websocket_client::message_ptr msg) {
+              std::cout << "Received message: " << msg->get_payload() << std::endl;
+          }
 
-void on_close(websocket_client* ws_client, connection_hdl hdl) {
-    std::cout << "Connection closed" << std::endl;
-}
+          void on_close(websocket_client* ws_client, connection_hdl hdl) {
+              std::cout << "Connection closed" << std::endl;
+          }
 
-int main() {
-    websocket_client ws_client;
-    ws_client.set_open_handler(bind(&on_open, &ws_client, ::_1));
-    ws_client.set_message_handler(bind(&on_message, &ws_client, ::_1, ::_2));
-    ws_client.set_close_handler(bind(&on_close, &ws_client, ::_1));
+          int main() {
+              websocket_client ws_client;
+              ws_client.set_open_handler(bind(&on_open, &ws_client, ::_1));
+              ws_client.set_message_handler(bind(&on_message, &ws_client, ::_1, ::_2));
+              ws_client.set_close_handler(bind(&on_close, &ws_client, ::_1));
 
-    std::string uri = "ws://your-cloudflare-worker-url"; // 替换为您的 Cloudflare Worker URL
+              std::string uri = "ws://your-cloudflare-worker-url"; // 替换为您的 Cloudflare Worker URL
 
-    websocketpp::lib::error_code ec;
-    auto conn = ws_client.get_connection(uri, ec);
+              websocketpp::lib::error_code ec;
+              auto conn = ws_client.get_connection(uri, ec);
 
-    if (ec) {
-        std::cout << "Error connecting to " << uri << ": " << ec.message() << std::endl;
-        return -1;
-    }
+              if (ec) {
+                  std::cout << "Error connecting to " << uri << ": " << ec.message() << std::endl;
+                  return -1;
+              }
 
-    ws_client.connect(conn);
-    ws_client.run();
+              ws_client.connect(conn);
+              ws_client.run();
 
-    return 0;' > websocket_client.cpp
+              return 0;' > websocket_client.cpp
 
           # 编译客户端
           g++ -std=c++11 -o websocket_client websocket_client.cpp -I./websocketpp -lboost_system -lpthread
