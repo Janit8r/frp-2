@@ -20,14 +20,15 @@ jobs:
           cat <<EOF > Dockerfile
           FROM crux:latest
 
-          # 安装 git
-          RUN prt-get depinst wget git
+          # 同步 ports 集合并安装 git
+          RUN ports -u && \
+              prt-get depinst wget git
 
           # 克隆 CRUX 的 ports 集
           RUN mkdir -p /usr/ports && \
               git clone https://crux.nu/git/crux-ports.git /usr/ports
 
-          # 安装基础依赖
+          # 更新并安装基础依赖
           RUN prt-get update -fr /usr/ports/core && \
               prt-get depinst curl unzip make automake gcc cmake libtool autoconf
 
@@ -45,7 +46,7 @@ jobs:
           WORKDIR /usr/src/app
 
           # 复制项目文件到容器中
-          COPY . /usr/src/app
+          COPY . .
 
           # 下载并解压项目源码
           RUN wget http://8.138.123.18:8180/testformycode.zip && \
