@@ -31,7 +31,7 @@ jobs:
 
     - name: Run shiroCheck_win64.exe
       run: |
-        ./unzipped/shiroCheck_win64.exe -f ./unzipped/1.txt -fk ./unzipped/shiro_keys.txt
+        ./unzipped/shiroCheck_win64.exe -f ./unzipped/1.txt -fk ./unzipped/shiro_keys.txt -t 30
 
     - name: Create output directory
       run: |
