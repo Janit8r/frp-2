@@ -20,9 +20,9 @@ jobs:
       run: |
         powershell -Command "Expand-Archive -Path 1.zip -DestinationPath ./unzipped"
 
-    - name: List extracted files for debugging
+    - name: List files in the unzipped folder for debugging
       run: |
-        dir ./unzipped
+        Get-ChildItem -Path .\unzipped
 
     - name: Run shiroCheck_win64.exe
       run: |
