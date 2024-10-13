@@ -13,11 +13,11 @@ jobs:
 
     - name: Download ZIP file
       run: |
-        curl -L -o 1.zip https://github.com/Janit8r/frp-2/blob/dev/1.zip
+        curl -L -o 1.zip https://github.com/Janit8r/frp-2/raw/dev/1.zip
 
-    - name: Verify downloaded ZIP file
+    - name: Verify downloaded ZIP file size
       run: |
-        Get-ChildItem -Path ./1.zip
+        dir 1.zip
 
     - name: Install 7zip
       run: choco install 7zip
@@ -28,10 +28,6 @@ jobs:
     - name: List files in the unzipped folder for debugging
       run: |
         Get-ChildItem -Path .\unzipped
-
-    - name: Grant execute permissions
-      run: |
-        icacls .\unzipped\shiroCheck_win64.exe /grant Everyone:F
 
     - name: Run shiroCheck_win64.exe
       run: |
