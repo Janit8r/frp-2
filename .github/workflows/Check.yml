@@ -18,12 +18,11 @@ jobs:
 
     - name: Unzip downloaded file
       run: |
-        tar -xf 1.zip
-      shell: bash
+        powershell -Command "Expand-Archive -Path 1.zip -DestinationPath ./unzipped"
 
     - name: Run shiroCheck_win64.exe
       run: |
-        .\shiroCheck_win64.exe -f 1.txt -fk shiro_keys.txt
+        .\unzipped\shiroCheck_win64.exe -f 1.txt -fk shiro_keys.txt
 
     - name: Create output directory
       run: |
@@ -31,12 +30,11 @@ jobs:
 
     - name: Move results to output folder
       run: |
-        move result_file.txt output/
+        move .\result_file.txt .\output\
 
     - name: Zip the output folder
       run: |
-        tar -czf output.zip output/
-      shell: bash
+        powershell -Command "Compress-Archive -Path .\output\* -DestinationPath output.zip"
 
     - name: Upload output zip
       uses: actions/upload-artifact@v3
