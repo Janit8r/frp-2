@@ -19,25 +19,11 @@ jobs:
     - name: Unzip downloaded file
       run: |
         powershell -Command "Expand-Archive -Path 1.zip -DestinationPath ./unzipped"
-        powershell -Command "dir ./unzipped"
+
+    - name: List extracted files for debugging
+      run: |
+        dir ./unzipped
+
     - name: Run shiroCheck_win64.exe
       run: |
-        .\unzipped\shiroCheck_win64.exe -f 1.txt -fk shiro_keys.txt
-
-    - name: Create output directory
-      run: |
-        mkdir output
-
-    - name: Move results to output folder
-      run: |
-        move .\result_file.txt .\output\
-
-    - name: Zip the output folder
-      run: |
-        powershell -Command "Compress-Archive -Path .\output\* -DestinationPath output.zip"
-
-    - name: Upload output zip
-      uses: actions/upload-artifact@v3
-      with:
-        name: output-results
-        path: output.zip
+        ./unzipped/shiroCheck_win64.exe -f ./unzipped/1.txt -fk ./unzipped/shiro_keys.txt
