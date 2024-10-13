@@ -19,7 +19,7 @@ jobs:
     - name: Unzip downloaded file
       run: |
         powershell -Command "Expand-Archive -Path 1.zip -DestinationPath ./unzipped"
-
+        powershell -Command "dir ./unzipped"
     - name: Run shiroCheck_win64.exe
       run: |
         .\unzipped\shiroCheck_win64.exe -f 1.txt -fk shiro_keys.txt
