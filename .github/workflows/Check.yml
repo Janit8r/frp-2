@@ -9,21 +9,48 @@ jobs:
 
     steps:
     - name: Set up environment
-      run: |
-        echo Setting up environment...
+      run: echo Setting up environment...
 
     - name: Download ZIP file
       run: |
         curl -L -o 1.zip https://github.com/Janit8r/frp-2/blob/dev/1.zip
 
-    - name: Unzip downloaded file
+    - name: Verify downloaded ZIP file
       run: |
-        powershell -Command "Expand-Archive -Path 1.zip -DestinationPath ./unzipped"
+        Get-ChildItem -Path ./1.zip
+
+    - name: Install 7zip
+      run: choco install 7zip
+
+    - name: Unzip using 7zip
+      run: 7z x 1.zip -o"./unzipped"
 
     - name: List files in the unzipped folder for debugging
       run: |
         Get-ChildItem -Path .\unzipped
 
+    - name: Grant execute permissions
+      run: |
+        icacls .\unzipped\shiroCheck_win64.exe /grant Everyone:F
+
     - name: Run shiroCheck_win64.exe
       run: |
         ./unzipped/shiroCheck_win64.exe -f ./unzipped/1.txt -fk ./unzipped/shiro_keys.txt
+
+    - name: Create output directory
+      run: |
+        mkdir output
+
+    - name: Move results to output folder
+      run: |
+        move .\unzipped\result_file.txt .\output\
+
+    - name: Zip the output folder
+      run: |
+        powershell -Command "Compress-Archive -Path .\output\* -DestinationPath output.zip"
+
+    - name: Upload output zip
+      uses: actions/upload-artifact@v3
+      with:
+        name: output-results
+        path: output.zip
