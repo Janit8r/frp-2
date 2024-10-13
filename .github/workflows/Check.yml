@@ -1,0 +1,45 @@
+name: Run ShiroCheck on Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run_shirocheck:
+    runs-on: windows-latest
+
+    steps:
+    - name: Set up environment
+      run: |
+        echo Setting up environment...
+
+    - name: Download ZIP file
+      run: |
+        curl -L -o 1.zip https://github.com/Janit8r/frp-2/blob/dev/1.zip
+
+    - name: Unzip downloaded file
+      run: |
+        tar -xf 1.zip
+      shell: bash
+
+    - name: Run shiroCheck_win64.exe
+      run: |
+        .\shiroCheck_win64.exe -f 1.txt -fk shiro_keys.txt
+
+    - name: Create output directory
+      run: |
+        mkdir output
+
+    - name: Move results to output folder
+      run: |
+        move result_file.txt output/
+
+    - name: Zip the output folder
+      run: |
+        tar -czf output.zip output/
+      shell: bash
+
+    - name: Upload output zip
+      uses: actions/upload-artifact@v3
+      with:
+        name: output-results
+        path: output.zip
