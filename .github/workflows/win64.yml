@@ -19,7 +19,7 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-make mingw-w64-x86_64-hwloc unzip
+          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hwloc unzip
 
       # Install curl to download the required files
       - name: Install curl
@@ -48,10 +48,10 @@ jobs:
       # Check if make is available and its version
       - name: Check make installation
         run: msys2 -c "pacman -Ss make" # Check if make package is available
-       
+
       # Confirm make command is working
       - name: Check make version
-        run: msys2 -c "echo 'Checking make version'; which make; make --version"
+        run: msys2 -c "if ! which make; then echo 'Make is not installed. Trying to install...'; pacman -S --noconfirm mingw-w64-x86_64-make; fi; make --version"
 
       # Run CMake to generate Makefiles
       - name: Run CMake to generate Makefiles
