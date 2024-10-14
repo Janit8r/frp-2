@@ -1,0 +1,42 @@
+name: Build and Install Dependencies
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+
+      - name: Install Dependencies
+        run: |
+          choco install -y cmake git
+          choco install -y mingw --version=8.1.0
+
+      - name: Download and Unzip Source Code
+        run: |
+          curl -L -o redis.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/redis.zip
+          unzip redis.zip
+
+      - name: Build Project
+        run: |
+          cd redis/scripts-64
+          chmod 777 *.sh
+          ./build_deps.sh
+          cd ..
+          mkdir build
+          cd build
+          cmake .. -G "MinGW Makefiles" -DCMAKE_CXX_FLAGS="-static" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_GENERATOR_PLATFORM=x64 -DBUILD_SHARED_LIBS=OFF
+          mingw32-make
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: redis/build
