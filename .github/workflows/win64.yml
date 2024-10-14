@@ -46,12 +46,13 @@ jobs:
         run: |
           mkdir redis/build
           cd redis/build
+          dir
 
       # Run cmake to generate Makefiles
       - name: Run CMake to generate Makefiles
         run: |
           cd redis/build
-          cmake.exe .. -G "Unix Makefiles" -DXMRIG_DEPS=$GITHUB_WORKSPACE/gcc/x64
+          cmake.exe .. -G "Unix Makefiles" -DXMRIG_DEPS=$GITHUB_WORKSPACE/gcc/x64 -DCMAKE_CXX_FLAGS="-static" -DCMAKE_EXE_LINKER_FLAGS="-static" -DBUILD_SHARED_LIBS=OFF
 
       # Compile using make
       - name: Run make
