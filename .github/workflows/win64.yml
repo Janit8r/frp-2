@@ -47,7 +47,7 @@ jobs:
 
       # Ensure mingw32-make is installed
       - name: Ensure mingw32-make is installed
-        run: msys2 -c "
+        run: msys2 -c |
           echo 'Checking for make installation...'; 
           if ! command -v mingw32-make &> /dev/null; then 
             echo 'mingw32-make is not installed. Installing...'; 
@@ -56,7 +56,6 @@ jobs:
             echo 'mingw32-make is already installed.'; 
           fi; 
           mingw32-make --version
-        "
 
       # Run CMake to generate Makefiles
       - name: Run CMake to generate Makefiles
