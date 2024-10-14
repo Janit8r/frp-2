@@ -14,8 +14,8 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v3
 
-      # Install MSYS2 with GCC, CMake, unzip, and HWLOC
-      - name: Set up MSYS2 with GCC, CMake, HWLOC, and unzip
+      # Install MSYS2 with GCC, CMake, HWLOC, unzip, and make
+      - name: Set up MSYS2 with GCC, CMake, HWLOC, and make
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -56,9 +56,10 @@ jobs:
           -DCMAKE_EXE_LINKER_FLAGS='-static' \
           -DBUILD_SHARED_LIBS=OFF"
 
-      # Build the project using make
+      # Build the project using make, ensuring the PATH is set
       - name: Build project
-        run: msys2 -c "cd redis/redis/build && make"
+        run: |
+          msys2 -c "export PATH=/mingw64/bin:$PATH && cd redis/redis/build && make"
 
       # Optionally, archive the build artifacts (if needed)
       - name: Archive build artifacts
