@@ -45,6 +45,10 @@ jobs:
       - name: Create build directory in redis
         run: msys2 -c "mkdir -p redis/redis/build"
 
+      # Check if make is available
+      - name: Check make version
+        run: msys2 -c "make --version"
+
       # Run CMake to generate Makefiles
       - name: Run CMake to generate Makefiles
         run: msys2 -c "cd redis/redis/build && cmake .. -G 'MinGW Makefiles' -DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF"
