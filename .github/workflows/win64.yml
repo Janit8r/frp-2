@@ -14,12 +14,12 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v3
 
-      # Install MSYS2, GCC, CMake, and unzip tools
-      - name: Set up MSYS2 with GCC, CMake, and unzip
+      # Install MSYS2 with GCC, CMake, unzip, and HWLOC
+      - name: Set up MSYS2 with GCC, CMake, HWLOC, and unzip
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-make unzip
+          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-make mingw-w64-x86_64-hwloc unzip
 
       # Install curl to download the required files
       - name: Install curl
@@ -45,7 +45,7 @@ jobs:
       - name: Create build directory in redis
         run: msys2 -c "mkdir -p redis/redis/build"
 
-      # Run CMake to configure the build system and generate Makefiles
+      # Run CMake to configure the build system and generate MinGW Makefiles
       - name: Run CMake to generate MinGW Makefiles
         run: |
           msys2 -c "cd redis/redis/build && cmake.exe .. -G 'MinGW Makefiles' \
