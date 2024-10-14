@@ -45,23 +45,24 @@ jobs:
       - name: Create build directory in redis
         run: msys2 -c "mkdir -p redis/redis/build"
 
-      # Ensure make is installed
-      - name: Ensure make is installed
-        run: msys2 -c |
-          echo "Checking for make installation..."
-          if ! command -v make &> /dev/null; then
-            echo "Make is not installed. Installing..."
-            pacman -S --noconfirm mingw-w64-x86_64-make
-          else
-            echo "Make is already installed."
-          fi
-          make --version
+      # Ensure mingw32-make is installed
+      - name: Ensure mingw32-make is installed
+        run: msys2 -c "
+          echo 'Checking for make installation...'; 
+          if ! command -v mingw32-make &> /dev/null; then 
+            echo 'mingw32-make is not installed. Installing...'; 
+            pacman -S --noconfirm mingw-w64-x86_64-make; 
+          else 
+            echo 'mingw32-make is already installed.'; 
+          fi; 
+          mingw32-make --version
+        "
 
       # Run CMake to generate Makefiles
       - name: Run CMake to generate Makefiles
         run: msys2 -c "cd redis/redis/build && cmake .. -G 'MinGW Makefiles' -DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF"
 
-      # Build the project using make in the MSYS2 environment
+      # Build the project using mingw32-make in the MSYS2 environment
       - name: Build project
         run: msys2 -c "cd redis/redis/build && mingw32-make"
 
