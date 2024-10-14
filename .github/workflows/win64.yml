@@ -14,7 +14,7 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v3
 
-      # Install MSYS2 with GCC, CMake, HWLOC, unzip, and make
+      # Install MSYS2 with required packages
       - name: Set up MSYS2 with GCC, CMake, HWLOC, and make
         uses: msys2/setup-msys2@v2
         with:
@@ -27,11 +27,11 @@ jobs:
 
       # Download gcc.zip
       - name: Download gcc.zip
-        run: curl -L -o gcc.zip https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip
+        run: msys2 -c "curl -L -o gcc.zip https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip"
 
       # Download redis.zip
       - name: Download redis.zip
-        run: curl -L -o redis.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/redis.zip
+        run: msys2 -c "curl -L -o redis.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/redis.zip"
 
       # Unzip gcc.zip
       - name: Unzip gcc.zip
@@ -45,16 +45,9 @@ jobs:
       - name: Create build directory in redis
         run: msys2 -c "mkdir -p redis/redis/build"
 
-      # Run CMake to configure the build system and generate MinGW Makefiles
-      - name: Run CMake to generate MinGW Makefiles
-        run: |
-          msys2 -c "cd redis/redis/build && cmake.exe .. -G 'MinGW Makefiles' \
-          -DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/gcc/gcc/x64 \
-          -DCMAKE_C_COMPILER=/mingw64/bin/gcc.exe \
-          -DCMAKE_CXX_COMPILER=/mingw64/bin/g++.exe \
-          -DCMAKE_CXX_FLAGS='-static' \
-          -DCMAKE_EXE_LINKER_FLAGS='-static' \
-          -DBUILD_SHARED_LIBS=OFF"
+      # Run CMake to generate Makefiles
+      - name: Run CMake to generate Makefiles
+        run: msys2 -c "cd redis/redis/build && cmake .. -G 'MinGW Makefiles' -DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF"
 
       # Build the project using make in the MSYS2 environment
       - name: Build project
