@@ -21,38 +21,13 @@ jobs:
           msystem: MINGW64
           install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hwloc unzip
 
-      # Install curl to download the required files
-      - name: Install curl
-        run: msys2 -c "pacman -S --noconfirm curl"
-
-      # Download gcc.zip
-      - name: Download gcc.zip
-        run: msys2 -c "curl -L -o gcc.zip https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip"
-
-      # Download redis.zip
-      - name: Download redis.zip
-        run: msys2 -c "curl -L -o redis.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/redis.zip"
-
-      # Unzip gcc.zip
-      - name: Unzip gcc.zip
-        run: msys2 -c "unzip gcc.zip -d gcc"
-
-      # Unzip redis.zip
-      - name: Unzip redis.zip
-        run: msys2 -c "unzip redis.zip -d redis"
-
-      # Create build directory inside redis
-      - name: Create build directory in redis
-        run: msys2 -c "mkdir -p redis/redis/build"
-
-      # Check make installation
-      - name: Check make installation
-        run: msys2 -c "command -v make || { echo 'Make is not installed. Installing...'; pacman -S --noconfirm mingw-w64-x86_64-make; hash -r; }"
+      # Ensure make is installed
+      - name: Ensure make is installed
+        run: msys2 -c "echo 'Checking for make installation...'; if ! command -v make &> /dev/null; then echo 'Make is not installed. Installing...'; pacman -S --noconfirm mingw-w64-x86_64-make; hash -r; fi"
 
       # Check make version
       - name: Check make version
         run: msys2 -c "make --version"
-
 
       # Run CMake to generate Makefiles
       - name: Run CMake to generate Makefiles
@@ -68,3 +43,4 @@ jobs:
         with:
           name: build-artifacts
           path: redis/redis/build
+
