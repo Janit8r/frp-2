@@ -56,10 +56,9 @@ jobs:
           -DCMAKE_EXE_LINKER_FLAGS='-static' \
           -DBUILD_SHARED_LIBS=OFF"
 
-      # Build the project using make, ensuring the PATH is set
+      # Build the project using make in the MSYS2 environment
       - name: Build project
-        run: |
-          msys2 -c "export PATH=/mingw64/bin:$PATH && cd redis/redis/build && make"
+        run: msys2 -c "cd redis/redis/build && make"
 
       # Optionally, archive the build artifacts (if needed)
       - name: Archive build artifacts
