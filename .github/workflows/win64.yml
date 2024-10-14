@@ -46,9 +46,15 @@ jobs:
         run: msys2 -c "mkdir -p redis/redis/build"
 
       # Run CMake to configure the build system and generate Makefiles
-      - name: Run CMake to generate Makefiles
+      - name: Run CMake to generate MinGW Makefiles
         run: |
-          msys2 -c "cd redis/redis/build && cmake.exe .. -G 'Unix Makefiles' -DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/gcc/gcc/x64 -DCMAKE_CXX_FLAGS='-static' -DCMAKE_EXE_LINKER_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF"
+          msys2 -c "cd redis/redis/build && cmake.exe .. -G 'MinGW Makefiles' \
+          -DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/gcc/gcc/x64 \
+          -DCMAKE_C_COMPILER=/mingw64/bin/gcc.exe \
+          -DCMAKE_CXX_COMPILER=/mingw64/bin/g++.exe \
+          -DCMAKE_CXX_FLAGS='-static' \
+          -DCMAKE_EXE_LINKER_FLAGS='-static' \
+          -DBUILD_SHARED_LIBS=OFF"
 
       # Build the project using make
       - name: Build project
