@@ -60,7 +60,7 @@ jobs:
 
       # Run CMake to generate Makefiles
       - name: Run CMake to generate Makefiles
-        run: msys2 -c "cd redis/redis/build && cmake .. -G 'MinGW Makefiles' -DCMAKE_PREFIX_PATH=D:/a/frp-2/frp-2/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF -DHWLOC_INCLUDE_DIRS=/mingw64/include -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a"
+        run: msys2 -c "cd redis/redis/build && cmake .. -G 'MinGW Makefiles' -DXMRIG_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF -DHWLOC_INCLUDE_DIRS=/mingw64/include -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a"
 
       # Build the project using mingw32-make in the MSYS2 environment
       - name: Build project
