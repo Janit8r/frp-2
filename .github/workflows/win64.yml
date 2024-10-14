@@ -19,7 +19,7 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hwloc unzip mingw-w64-x86_64-make
+          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hwloc unzip
 
       # Install curl to download the required files
       - name: Install curl
@@ -44,6 +44,18 @@ jobs:
       # Create build directory inside redis
       - name: Create build directory in redis
         run: msys2 -c "mkdir -p redis/redis/build"
+
+      # Ensure make is installed
+      - name: Ensure make is installed
+        run: |
+          echo "Checking for make installation..."
+          if ! command -v make &> /dev/null; then
+            echo "Make is not installed. Installing..."
+            pacman -S --noconfirm mingw-w64-x86_64-make
+          else
+            echo "Make is already installed."
+          fi
+          make --version
 
       # Run CMake to generate Makefiles
       - name: Run CMake to generate Makefiles
