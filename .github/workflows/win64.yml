@@ -18,11 +18,23 @@ jobs:
         run: |
           choco install -y cmake git
           choco install -y mingw --version=8.1.0
+          choco install -y make
 
       - name: Download and Unzip Source Code
         run: |
           curl -L -o redis.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/redis.zip
           unzip redis.zip
+
+      - name: Download and Build HWLOC
+        run: |
+          curl -L -o hwloc.zip https://download.open-mpi.org/release/hwloc/v2.9/hwloc-2.9.0.zip
+          unzip hwloc.zip
+          cd hwloc-2.9.0
+          mkdir build
+          cd build
+          cmake .. -G "MinGW Makefiles" -DBUILD_SHARED_LIBS=OFF
+          mingw32-make
+          cd ../..
 
       - name: Build Project
         run: |
@@ -32,7 +44,14 @@ jobs:
           cd ..
           mkdir build
           cd build
-          cmake .. -G "MinGW Makefiles" -DCMAKE_C_COMPILER="C:/ProgramData/chocolatey/bin/gcc.exe" -DCMAKE_CXX_COMPILER="C:/ProgramData/chocolatey/bin/g++.exe" -DCMAKE_CXX_FLAGS="-static" -DCMAKE_EXE_LINKER_FLAGS="-static" -DBUILD_SHARED_LIBS=OFF
+          cmake .. -G "MinGW Makefiles" \
+            -DCMAKE_C_COMPILER="C:/ProgramData/chocolatey/bin/gcc.exe" \
+            -DCMAKE_CXX_COMPILER="C:/ProgramData/chocolatey/bin/g++.exe" \
+            -DCMAKE_CXX_FLAGS="-static" \
+            -DCMAKE_EXE_LINKER_FLAGS="-static" \
+            -DHWLOC_INCLUDE_DIR=../../hwloc-2.9.0/include \
+            -DHWLOC_LIBRARY=../../hwloc-2.9.0/build/libhwloc.a \
+            -DBUILD_SHARED_LIBS=OFF
           mingw32-make
 
       - name: Upload Build Artifacts
