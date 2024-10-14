@@ -14,8 +14,8 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v3
 
-      # Install MSYS2, GCC, CMake, unzip
-      - name: Set up MSYS2
+      # Install MSYS2, GCC, CMake, and unzip tools
+      - name: Set up MSYS2 with GCC, CMake, and unzip
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -43,14 +43,20 @@ jobs:
 
       # Create and enter build directory inside redis
       - name: Create build directory in redis
-        run: |
-          mkdir redis/redis/build
-          cd redis/redis/build
-          dir
+        run: msys2 -c "mkdir -p redis/redis/build"
 
-      # Run cmake to generate Makefiles
+      # Run CMake to configure the build system and generate Makefiles
       - name: Run CMake to generate Makefiles
         run: |
-          cd redis/redis/build
-          cmake.exe .. -G "Unix Makefiles" -DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/gcc/gcc/x64 -DCMAKE_CXX_FLAGS="-static" -DCMAKE_EXE_LINKER_FLAGS="-static" -DBUILD_SHARED_LIBS=OFF
-          make
+          msys2 -c "cd redis/redis/build && cmake.exe .. -G 'Unix Makefiles' -DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/gcc/gcc/x64 -DCMAKE_CXX_FLAGS='-static' -DCMAKE_EXE_LINKER_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF"
+
+      # Build the project using make
+      - name: Build project
+        run: msys2 -c "cd redis/redis/build && make"
+
+      # Optionally, archive the build artifacts (if needed)
+      - name: Archive build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: redis/redis/build
