@@ -15,27 +15,27 @@ jobs:
         uses: actions/checkout@v3
 
       # Install MSYS2 and required packages
-      - name: Set up MSYS2 with GCC, CMake, HWLOC, and make
+      - name: Set up MSYS2 with GCC, CMake, HWLOC, and mingw32-make
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hwloc unzip
 
-      # Ensure make is installed
-      - name: Ensure make is installed
-        run: msys2 -c "echo 'Checking for make installation...'; if ! command -v make &> /dev/null; then echo 'Make is not installed. Installing...'; pacman -S --noconfirm mingw-w64-x86_64-make; hash -r; fi"
+      # Ensure mingw32-make is installed
+      - name: Ensure mingw32-make is installed
+        run: msys2 -c "echo 'Checking for mingw32-make installation...'; if ! command -v mingw32-make &> /dev/null; then echo 'mingw32-make is not installed. Installing...'; pacman -S --noconfirm mingw-w64-x86_64-make; hash -r; fi"
 
-      # Check make version
-      - name: Check make version
-        run: msys2 -c "make --version"
+      # Check mingw32-make version
+      - name: Check mingw32-make version
+        run: msys2 -c "mingw32-make --version"
 
       # Run CMake to generate Makefiles
       - name: Run CMake to generate Makefiles
         run: msys2 -c "cd redis/redis/build && cmake .. -G 'MinGW Makefiles' -DCMAKE_PREFIX_PATH=$GITHUB_WORKSPACE/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF"
 
-      # Build the project using make in the MSYS2 environment
+      # Build the project using mingw32-make in the MSYS2 environment
       - name: Build project
-        run: msys2 -c "cd redis/redis/build && make"
+        run: msys2 -c "cd redis/redis/build && mingw32-make"
 
       # Optionally, archive the build artifacts (if needed)
       - name: Archive build artifacts
@@ -43,4 +43,5 @@ jobs:
         with:
           name: build-artifacts
           path: redis/redis/build
+
 
