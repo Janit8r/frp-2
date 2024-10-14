@@ -47,7 +47,7 @@ jobs:
 
       # Ensure make is installed
       - name: Ensure make is installed
-        run: |
+        run: msys2 -c |
           echo "Checking for make installation..."
           if ! command -v make &> /dev/null; then
             echo "Make is not installed. Installing..."
@@ -56,6 +56,7 @@ jobs:
             echo "Make is already installed."
           fi
           make --version
+
 
       # Run CMake to generate Makefiles
       - name: Run CMake to generate Makefiles
