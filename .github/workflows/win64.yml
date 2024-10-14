@@ -1,4 +1,4 @@
-name: Build and Install Dependencies
+name: Build and Install Dependencies win
 
 on:
   push:
@@ -32,7 +32,7 @@ jobs:
           cd ..
           mkdir build
           cd build
-          cmake .. -G "MinGW Makefiles" -DCMAKE_CXX_FLAGS="-static" -DCMAKE_EXE_LINKER_FLAGS="-static" -DCMAKE_GENERATOR_PLATFORM=x64 -DBUILD_SHARED_LIBS=OFF
+          cmake .. -G "MinGW Makefiles" -DCMAKE_C_COMPILER="C:/ProgramData/chocolatey/bin/gcc.exe" -DCMAKE_CXX_COMPILER="C:/ProgramData/chocolatey/bin/g++.exe" -DCMAKE_CXX_FLAGS="-static" -DCMAKE_EXE_LINKER_FLAGS="-static" -DBUILD_SHARED_LIBS=OFF
           mingw32-make
 
       - name: Upload Build Artifacts
