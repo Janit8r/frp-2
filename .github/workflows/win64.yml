@@ -14,7 +14,7 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v3
 
-      # Install MSYS2 with required packages
+      # Install MSYS2 and required packages
       - name: Set up MSYS2 with GCC, CMake, HWLOC, and make
         uses: msys2/setup-msys2@v2
         with:
@@ -41,11 +41,15 @@ jobs:
       - name: Unzip redis.zip
         run: msys2 -c "unzip redis.zip -d redis"
 
-      # Create and enter build directory inside redis
+      # Create build directory inside redis
       - name: Create build directory in redis
         run: msys2 -c "mkdir -p redis/redis/build"
 
       # Check if make is available and its version
+      - name: Check make installation
+        run: msys2 -c "pacman -Ss make" # Check if make package is available
+       
+      # Confirm make command is working
       - name: Check make version
         run: msys2 -c "echo 'Checking make version'; which make; make --version"
 
