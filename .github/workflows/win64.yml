@@ -47,14 +47,8 @@ jobs:
 
       # Ensure make is installed
       - name: Ensure make is installed
-        run: msys2 -c "echo 'Checking for make installation...'; \
-          if ! command -v make &> /dev/null; then \
-            echo 'Make is not installed. Installing...'; \
-            pacman -S --noconfirm mingw-w64-x86_64-make; \
-          else \
-            echo 'Make is already installed.'; \
-          fi; \
-          make --version"
+        run: msys2 -c "echo 'Checking for make installation...'; if ! command -v make &> /dev/null; then echo 'Make is not installed. Installing...'; pacman -S --noconfirm mingw-w64-x86_64-make; else echo 'Make is already installed.'; fi; make --version"
+
 
 
 
