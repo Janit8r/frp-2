@@ -45,11 +45,13 @@ jobs:
       - name: Create build directory in redis
         run: msys2 -c "mkdir -p redis/redis/build"
 
-      # Ensure make is installed
-      - name: Ensure make is installed
-        run: msys2 -c "echo 'Checking for make installation...'; if ! command -v make &> /dev/null; then echo 'Make is not installed. Installing...'; pacman -S --noconfirm mingw-w64-x86_64-make; else echo 'Make is already installed.'; fi; make --version"
+      # Check make installation
+      - name: Check make installation
+        run: msys2 -c "command -v make || { echo 'Make is not installed. Installing...'; pacman -S --noconfirm mingw-w64-x86_64-make; hash -r; }"
 
-
+      # Check make version
+      - name: Check make version
+        run: msys2 -c "make --version"
 
 
       # Run CMake to generate Makefiles
