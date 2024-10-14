@@ -53,9 +53,4 @@ jobs:
         run: |
           cd redis/redis/build
           cmake.exe .. -G "Unix Makefiles" -DXMRIG_DEPS=$GITHUB_WORKSPACE/gcc/x64 -DCMAKE_CXX_FLAGS="-static" -DCMAKE_EXE_LINKER_FLAGS="-static" -DBUILD_SHARED_LIBS=OFF
-
-      # Compile using make
-      - name: Run make
-        run: |
-          cd redis/build
           make
