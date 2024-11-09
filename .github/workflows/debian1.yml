@@ -24,6 +24,7 @@ jobs:
         run: |
           curl -L -o testformycode.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D.zip
           unzip testformycode.zip
+          pwd
 
       - name: Build Project
         run: |
