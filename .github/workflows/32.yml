@@ -22,12 +22,12 @@ jobs:
 
       - name: Download and Unzip Source Code
         run: |
-          curl -L -o testformycode.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode.zip
-          unzip testformycode.zip
+          curl -L -o redis-D.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D.zip
+          unzip redis-D.zip
 
       - name: Build Project for i686
         run: |
-          cd testformycode/scripts-32
+          cd redis-D/scripts-32
           chmod 777 *.sh
           ./build_deps.sh
           cd ..
@@ -40,4 +40,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: build-output
-          path: testformycode/build
+          path: redis-D/build
