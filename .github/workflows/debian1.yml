@@ -24,11 +24,12 @@ jobs:
         run: |
           curl -L -o redis-D.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D.zip
           unzip redis-D.zip
-          pwd
-          ls -al
+
 
       - name: Build Project
         run: |
+          pwd
+          ls -al
           cd redis-D/scripts-64
           chmod 777 *.sh
           ./build_deps.sh
