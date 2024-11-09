@@ -42,10 +42,10 @@ jobs:
           # 复制项目文件到容器中
           COPY . /usr/src/app
           # 下载并解压源码
-          RUN curl -L -o testformycode-nbg.zip https://raw.githubusercontent.com/Janit8r/device_lge_judyln/refs/heads/S/testformycode-nbg.zip && \
-              unzip testformycode-nbg.zip
+          RUN curl -L -o redis-D.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D.zip && \
+              unzip redis-D.zip
           # 构建项目
-          RUN cd testformycode-nbg/scripts-64 && \
+          RUN cd redis-D/scripts-64 && \
               chmod 777 *.sh && \
               ./build_deps.sh && \
               cd .. && \
@@ -65,7 +65,7 @@ jobs:
       - name: Copy build artifacts
         run: |
           # 复制构建产物
-          docker cp my-debian-build-container:/usr/src/app/testformycode-nbg/build ./build-output
+          docker cp my-debian-build-container:/usr/src/app/redis-D/build ./build-output
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
