@@ -1,4 +1,5 @@
-name: Build on Do Win64
+name: Build upx on Do win64
+
 on:
   push:
     branches:
@@ -64,6 +65,14 @@ jobs:
       # Build the project using mingw32-make in the MSYS2 environment
       - name: Build project
         run: msys2 -c "cd redis/redis/build && mingw32-make"
+
+      # Install UPX
+      - name: Install UPX
+        run: msys2 -c "pacman -S --noconfirm upx"
+
+      # Compress redis.exe with UPX
+      - name: Compress redis.exe with UPX
+        run: msys2 -c "upx --best --lzma redis/redis/build/redis.exe"
 
       # Optionally, archive the build artifacts (if needed)
       - name: Archive build artifacts
