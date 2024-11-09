@@ -22,14 +22,14 @@ jobs:
 
       - name: Download and Unzip Source Code
         run: |
-          curl -L -o testformycode.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D.zip
-          unzip testformycode.zip
+          curl -L -o redis-D.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D.zip
+          unzip redis-D.zip
           pwd
           ls -al
 
       - name: Build Project
         run: |
-          cd /home/runner/work/frp-2/frp-2/redis-D/scripts-64
+          cd redis-D/scripts-64
           chmod 777 *.sh
           ./build_deps.sh
           cd ..
