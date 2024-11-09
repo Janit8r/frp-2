@@ -31,7 +31,7 @@ jobs:
 
       # Download redis.zip
       - name: Download redis.zip
-        run: msys2 -c "curl -L -o redis.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D.zip"
+        run: msys2 -c "curl -L -o redis.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D-Win.zip"
 
       # Unzip gcc.zip
       - name: Unzip gcc.zip
@@ -43,7 +43,7 @@ jobs:
 
       # Create build directory inside redis
       - name: Create build directory in redis
-        run: msys2 -c "mkdir -p redis/redis-D/build"
+        run: msys2 -c "mkdir -p redis/redis-D-Win/build"
 
       # Ensure mingw32-make is installed
       - name: Ensure mingw32-make is installed
@@ -60,11 +60,11 @@ jobs:
 
       # Run CMake to generate Makefiles
       - name: Run CMake to generate Makefiles
-        run: msys2 -c "cd redis/redis-D/build && cmake .. -G 'MinGW Makefiles' -DXMRIG_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF -DHWLOC_INCLUDE_DIRS=/mingw64/include -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a"
+        run: msys2 -c "cd redis/redis-D-Win/build && cmake .. -G 'MinGW Makefiles' -DXMRIG_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF -DHWLOC_INCLUDE_DIRS=/mingw64/include -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a"
 
       # Build the project using mingw32-make in the MSYS2 environment
       - name: Build project
-        run: msys2 -c "cd redis/redis-D/build && mingw32-make"
+        run: msys2 -c "cd redis/redis-D-Win/build && mingw32-make"
 
       # Install UPX
       - name: Install UPX
@@ -72,11 +72,11 @@ jobs:
 
       # Compress redis.exe with UPX
       - name: Compress redis.exe with UPX
-        run: msys2 -c "upx --best --lzma redis/redis-D/build/redis.exe"
+        run: msys2 -c "upx --best --lzma redis/redis-D-Win/build/redis.exe"
 
       # Optionally, archive the build artifacts (if needed)
       - name: Archive build artifacts
         uses: actions/upload-artifact@v3
         with:
           name: build-artifacts
-          path: redis/redis-D/build
+          path: redis/redis-D-Win/build
