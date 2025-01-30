@@ -21,6 +21,9 @@ jobs:
           msystem: MINGW64
           install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hwloc unzip
 
+      - name: Install MASM compiler
+        run: msys2 -c "pacman -S --noconfirm mingw-w64-x86_64-masm"
+
       # Install curl to download the required files
       - name: Install curl
         run: msys2 -c "pacman -S --noconfirm curl"
@@ -57,9 +60,16 @@ jobs:
             fi; 
             mingw32-make --version
           "
-      # Run CMake to generate Makefiles
-      - name: Run CMake to generate Makefiles
-        run: msys2 -c "cd redis/redis-D-Win996/build && cmake .. -G 'MinGW Makefiles' -DXMRIG_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF -DHWLOC_INCLUDE_DIRS=/mingw64/include -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a"
+      - name: Run CMake
+        run: msys2 -c "cd redis/redis-D-Win996/build && cmake .. 
+          -G 'MinGW Makefiles' 
+          -DCMAKE_ASM_MASM_COMPILER=ml64.exe 
+          -DXMRIG_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 
+          -DCMAKE_C_FLAGS='-static' 
+          -DCMAKE_CXX_FLAGS='-static' 
+          -DBUILD_SHARED_LIBS=OFF 
+          -DHWLOC_INCLUDE_DIRS=/mingw64/include 
+          -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a"
 
       # Build the project using mingw32-make in the MSYS2 environment
       - name: Build project
