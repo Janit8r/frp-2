@@ -71,6 +71,9 @@ jobs:
           -DHWLOC_INCLUDE_DIRS=/mingw64/include 
           -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a"
 
+      - name: Build project
+        run: msys2 -c "cd redis/redis-D-Win996/build && mingw32-make -j4"
+
       # Build the project using mingw32-make in the MSYS2 environment
       - name: Build project
         run: msys2 -c "cd redis/redis-D-Win996/build && mingw32-make"
