@@ -1,0 +1,41 @@
+name: Build with SysWhispers3
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: >
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-hwloc
+            mingw-w64-x86_64-make
+            python
+            git
+
+      - name: Clone SysWhispers3
+        run: msys2 -c "git clone https://github.com/klezVirus/SysWhispers3.git"
+
+      - name: Generate syscalls
+        run: msys2 -c "python SysWhispers3/syswhispers.py -f NtSetInformationProcess,NtSetInformationThread -o syscalls --masm"
+
+      - name: Prepare build env
+        run: msys2 -c "mkdir -p redis/build && cp -r syscalls/ redis/"
+
+      - name: Configure CMake
+        run: msys2 -c "cd redis/build && cmake .. -G 'MinGW Makefiles' -DCMAKE_ASM_MASM_COMPILER=ml64.exe -DBUILD_SHARED_LIBS=OFF"
+
+      - name: Build project
+        run: msys2 -c "cd redis/build && mingw32-make -j4"
