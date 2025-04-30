@@ -1,4 +1,4 @@
-name: Build on Do 2025-04-30
+name: Build on Do win64 noupx
 
 on:
   push:
@@ -52,9 +52,9 @@ jobs:
           cd redis/redis-D-Win9900/build
           cmake --build . --config Release
 
-      # Archive the build artifacts
+      # Archive the build artifacts - 更新到v4版本
       - name: Archive build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
           path: redis/redis-D-Win9900/build/Release
