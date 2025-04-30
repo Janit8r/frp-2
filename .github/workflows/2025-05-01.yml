@@ -16,19 +16,24 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v3
 
-      # Install MSVC build tools directly on the runner
+      # Setup CMake
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v1.13
+        with:
+          cmake-version: '3.23.x'
+
+      # Install MSVC build tools
       - name: Setup Visual Studio Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
 
       # Create build directories
       - name: Create directories
         run: |
           mkdir -p deps
           mkdir -p artifacts
+          mkdir -p build
 
-      # 打印当前环境信息
+      # Print environment info
       - name: Print environment info
         run: |
           Write-Host "Current working directory: $(Get-Location)"
@@ -41,8 +46,9 @@ jobs:
       # Download dependencies with retry mechanism
       - name: Download dependencies
         run: |
-          $ProgressPreference = 'SilentlyContinue'
+          $ProgressPreference = 'SilentlyContinue'  # Speeds up downloads
           
+          # Function to download with retry
           function Download-WithRetry {
             param(
               [string]$Url,
@@ -73,297 +79,74 @@ jobs:
             }
           }
           
+          # Download required files
           Download-WithRetry -Url "https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip" -OutputFile "deps/gcc.zip"
           Download-WithRetry -Url "https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D-Win9900.zip" -OutputFile "deps/redis.zip"
         shell: pwsh
 
-      # Extract dependencies (注意修改解压路径)
+      # Extract dependencies
       - name: Extract dependencies
         run: |
-          $ProgressPreference = 'SilentlyContinue'
+          $ProgressPreference = 'SilentlyContinue'  # Speeds up extraction
           Write-Host "Extracting dependencies..."
           
+          # Extract with error handling
           try {
-            # 解压gcc到deps/gcc目录
             Expand-Archive -Path deps/gcc.zip -DestinationPath deps/gcc -Force
-            
-            # 先解压redis到临时目录查看结构
-            mkdir -Force temp_extract
-            Expand-Archive -Path deps/redis.zip -DestinationPath temp_extract -Force
-            
-            # 显示解压后的文件结构
-            Write-Host "Redis archive structure:"
-            Get-ChildItem -Path temp_extract -Recurse -Depth 1 | ForEach-Object { Write-Host "  $($_.FullName)" }
-            
-            # 找到真正的项目目录
-            $redisRootDir = Get-ChildItem -Path temp_extract -Directory | Select-Object -First 1
-            if ($redisRootDir) {
-              Write-Host "Moving Redis source from $($redisRootDir.FullName) to main directory"
-              # 复制到主目录
-              Copy-Item -Path "$($redisRootDir.FullName)/*" -Destination ./ -Recurse -Force
-            } else {
-              Write-Host "Extracting Redis archive directly to main directory"
-              # 如果没有子目录结构，直接解压到主目录
-              Expand-Archive -Path deps/redis.zip -DestinationPath ./ -Force
-            }
-            
-            # 验证文件是否已正确提取
-            if (Test-Path "CMakeLists.txt") {
-              Write-Host "CMakeLists.txt found in root directory - extraction successful"
-            } else {
-              Write-Host "WARNING: CMakeLists.txt not found in root directory after extraction"
-              # 尝试查找CMakeLists.txt
-              $cmakeLists = Get-ChildItem -Path ./ -Recurse -Filter "CMakeLists.txt" | Select-Object -First 5
-              if ($cmakeLists) {
-                Write-Host "Found CMakeLists.txt at alternative locations:"
-                $cmakeLists | ForEach-Object { Write-Host "  $($_.FullName)" }
-              }
-            }
-            
-            # 清理临时目录
-            Remove-Item -Path temp_extract -Recurse -Force
-            
-            Write-Host "Extraction completed successfully."
+            Expand-Archive -Path deps/redis.zip -DestinationPath deps/redis -Force
+            Write-Host "Dependencies extracted successfully."
           }
           catch {
-            Write-Host "Error during extraction: $_"
+            Write-Host "Error extracting dependencies: $_"
             exit 1
           }
         shell: pwsh
 
-      # Set up CMake
-      - name: Set up CMake
-        uses: jwlawson/actions-setup-cmake@v1.13
-        with:
-          cmake-version: '3.20.x'
-
-      # Setup vcpkg to install libuv
-      - name: Setup vcpkg
-        run: |
-          git clone https://github.com/Microsoft/vcpkg.git
-          cd vcpkg
-          
-          ./bootstrap-vcpkg.bat
-          
-          $env:VCPKG_DEFAULT_TRIPLET = "x64-windows-static"
-          $env:VCPKG_DISABLE_METRICS = "true"
-          
-          ./vcpkg install libuv:x64-windows-static openssl:x64-windows-static hwloc:x64-windows-static
-          
-          ./vcpkg integrate install
-          
-          Write-Host "Installed packages:"
-          ./vcpkg list
-        shell: pwsh
-
-      # Check project structure
-      - name: Check project structure
-        run: |
-          Write-Host "Checking project structure..."
-          
-          # 查看项目目录结构
-          Get-ChildItem -Path . -Recurse -Depth 2 | Select-Object FullName
-          
-          # 检查xmrig.cpp文件
-          $xmrigFiles = Get-ChildItem -Path . -Recurse -Filter "xmrig.cpp" | Select-Object -First 5
-          if ($xmrigFiles) {
-            Write-Host "Found xmrig.cpp files:"
-            $xmrigFiles | ForEach-Object { Write-Host "  $($_.FullName)" }
-            $sourcePath = $xmrigFiles[0].FullName
-            Write-Host "Will use $sourcePath as primary source file"
-          } else {
-            Write-Host "ERROR: Could not find xmrig.cpp file in project!"
-            exit 1
-          }
-          
-          # 检查CMakeLists.txt
-          $cmakePath = "CMakeLists.txt"
-          if (Test-Path $cmakePath) {
-            Write-Host "CMakeLists.txt found. Content preview:"
-            Get-Content $cmakePath -TotalCount 50
-          } else {
-            Write-Host "WARNING: CMakeLists.txt not found at expected location: $cmakePath"
-            # 搜索CMakeLists.txt
-            $cmakeFiles = Get-ChildItem -Path . -Recurse -Filter "CMakeLists.txt" | Select-Object -First 5
-            if ($cmakeFiles) {
-              Write-Host "Found CMakeLists.txt files at alternative locations:"
-              $cmakeFiles | ForEach-Object { Write-Host "  $($_.FullName)" }
-            }
-          }
-        shell: pwsh
-        continue-on-error: true
-
-      # 使用CMake构建项目
+      # Build with CMake
       - name: Build with CMake
         run: |
-          # 创建构建目录
-          mkdir -Force build
           cd build
-          
-          # 使用正确的路径格式
-          $xmrigDepsPath = "${{ github.workspace }}/deps/gcc/gcc/x64" -replace '\\', '/'
-          $vcpkgPath = "${{ github.workspace }}/vcpkg" -replace '\\', '/'
-          Write-Host "Using XMRIG_DEPS path: $xmrigDepsPath"
-          Write-Host "Using vcpkg path: $vcpkgPath"
-          
-          # 配置CMake - 使用Visual Studio生成器
-          Write-Host "Configuring CMake with Visual Studio generator..."
-          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF -DCMAKE_TOOLCHAIN_FILE="$vcpkgPath/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows-static -DWITH_TLS=OFF -DWITH_OPENCL=OFF
-          
+          cmake .. -G "Visual Studio 17 2022" -A x64 -DXMRIG_DEPS=..\deps
           if ($LASTEXITCODE -ne 0) {
-            Write-Host "Error: CMake configuration failed. Trying NMake generator instead..."
-            # 清空目录，使用NMake生成器重试
-            cd ..
-            Remove-Item -Path build -Recurse -Force
-            mkdir -Force build
-            cd build
-            
-            cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF -DCMAKE_TOOLCHAIN_FILE="$vcpkgPath/scripts/buildsystems/vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows-static -DWITH_TLS=OFF -DWITH_OPENCL=OFF
+            Write-Host "CMake configuration failed"
+            exit 1
           }
-          
-          # 构建
-          Write-Host "Building project..."
           cmake --build . --config Release
-          
-          # 检查是否有构建结果
-          $exeFiles = Get-ChildItem -Path . -Include "*.exe" -Recurse -File
-          if ($exeFiles.Count -gt 0) {
-            Write-Host "Build successful! Found executables:"
-            $exeFiles | ForEach-Object { Write-Host "  $($_.FullName)" }
-          } else {
-            Write-Host "No executables found after build!"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Build failed"
+            exit 1
           }
         shell: pwsh
-        continue-on-error: true
 
-      # 尝试直接编译xmrig.cpp
-      - name: Try direct compile of xmrig.cpp
+      # Copy build artifacts to artifacts directory
+      - name: Copy artifacts
         run: |
-          # 查找xmrig.cpp文件
-          $sourcePath = Get-ChildItem -Path . -Recurse -Filter "xmrig.cpp" | Select-Object -First 1
-          
-          if ($sourcePath) {
-            Write-Host "Found xmrig.cpp at $($sourcePath.FullName)"
-            
-            # 检查必要的头文件和路径
-            $xmrigDepsPath = "${{ github.workspace }}/deps/gcc/gcc/x64" -replace '\\', '/'
-            $vcpkgIncludePath = "${{ github.workspace }}/vcpkg/installed/x64-windows-static/include" -replace '\\', '/'
-            
-            try {
-              # 创建构建目录
-              mkdir -Force artifacts/direct_build -ErrorAction Stop
-              cd artifacts/direct_build
-              
-              # 获取源文件所在目录作为额外的include路径
-              $sourceDir = $sourcePath.DirectoryName
-              
-              # 尝试找出所有可能的include目录
-              $includeDirs = @(
-                "$xmrigDepsPath/include",
-                "$vcpkgIncludePath",
-                "$sourceDir",
-                "${{ github.workspace }}/src"
-              )
-              
-              $includeArgs = $includeDirs | ForEach-Object { if (Test-Path $_) { "/I`"$_`"" } }
-              $includeArgsStr = $includeArgs -join " "
-              
-              # 查找项目所有源文件并编译
-              Write-Host "Finding all .cpp files in the project..."
-              $cppFiles = Get-ChildItem -Path $sourceDir -Filter "*.cpp" | Select-Object -First 20
-              $sourcesList = $cppFiles | ForEach-Object { "`"$($_.FullName)`"" }
-              $sourcesArg = $sourcesList -join " "
-              
-              Write-Host "Will compile the following source files: $sourcesArg"
-              
-              Write-Host "Attempting direct compilation of source files..."
-              $compileCmd = "cl.exe /EHsc /MD $includeArgsStr $sourcesArg /link /LIBPATH:`"$xmrigDepsPath/lib`" /LIBPATH:`"${{ github.workspace }}/vcpkg/installed/x64-windows-static/lib`" libuv.lib libcrypto.lib user32.lib /OUT:xmrig.exe"
-              Write-Host "Running: $compileCmd"
-              
-              # 执行编译命令
-              Invoke-Expression $compileCmd
-              
-              if (Test-Path "xmrig.exe") {
-                Write-Host "Successfully compiled xmrig.exe!"
-                Copy-Item -Path "xmrig.exe" -Destination "../../artifacts/" -Force
-              } elseif (Test-Path "*.obj") {
-                Write-Host "Compilation produced object files. Attempting to link..."
-                $objFiles = Get-ChildItem -Filter "*.obj" -File
-                $objList = $objFiles | ForEach-Object { "`"$($_.FullName)`"" }
-                $objArg = $objList -join " "
-                
-                $linkCmd = "link.exe $objArg /LIBPATH:`"$xmrigDepsPath/lib`" /LIBPATH:`"${{ github.workspace }}/vcpkg/installed/x64-windows-static/lib`" libuv.lib libcrypto.lib user32.lib /OUT:xmrig.exe"
-                Write-Host "Running: $linkCmd"
-                Invoke-Expression $linkCmd
-                
-                if (Test-Path "xmrig.exe") {
-                  Write-Host "Successfully linked xmrig.exe!"
-                  Copy-Item -Path "xmrig.exe" -Destination "../../artifacts/" -Force
-                }
-              }
-            }
-            catch {
-              Write-Host "Direct compilation failed: $_"
-            }
-          } else {
-            Write-Host "Could not find xmrig.cpp in project"
-          }
-        shell: pwsh
-        continue-on-error: true
-
-      # 收集所有可能的构建结果
-      - name: Collect build artifacts
-        run: |
-          Write-Host "Collecting build artifacts from all possible build directories..."
-          
-          # 定义要搜索的目录
-          $searchDirs = @(
-            ".",
-            "build",
-            "build/Release",
-            "artifacts/direct_build"
+          # Create list of files to copy
+          $filesToCopy = @(
+            "build/Release/xmrig.exe",
+            "build/Release/*.dll"
           )
           
-          # 查找所有可能的构建结果
-          foreach ($dir in $searchDirs) {
-            if (Test-Path $dir) {
-              Write-Host "Checking $dir for build artifacts..."
-              
-              # 查找exe和dll文件
-              Get-ChildItem -Path $dir -Include "*.exe", "*.dll", "*.obj" -Recurse -File | ForEach-Object {
-                Write-Host "Found: $($_.FullName)"
-                Copy-Item -Path $_.FullName -Destination "artifacts/" -Force
+          # Copy each file
+          foreach ($file in $filesToCopy) {
+            $fileMatches = Get-ChildItem -Path $file -ErrorAction SilentlyContinue
+            if ($fileMatches) {
+              foreach ($match in $fileMatches) {
+                Write-Host "Copying $match to artifacts directory"
+                Copy-Item -Path $match -Destination artifacts/ -Force
               }
+            } else {
+              Write-Host "Warning: No files found matching pattern $file"
             }
           }
           
-          # 复制vcpkg安装的DLL文件
-          $vcpkgBinPath = "vcpkg/installed/x64-windows/bin"
-          if (Test-Path $vcpkgBinPath) {
-            Write-Host "Copying vcpkg DLL files from $vcpkgBinPath"
-            Copy-Item -Path "$vcpkgBinPath/*.dll" -Destination "artifacts/" -Force
-          }
-          
-          $vcpkgStaticBinPath = "vcpkg/installed/x64-windows-static/bin"
-          if (Test-Path $vcpkgStaticBinPath) {
-            Write-Host "Copying vcpkg static bin files from $vcpkgStaticBinPath"
-            Copy-Item -Path "$vcpkgStaticBinPath/*" -Destination "artifacts/" -Force -ErrorAction SilentlyContinue
-          }
-          
-          # 检查是否有构建结果
-          $artifactFiles = Get-ChildItem -Path "artifacts"
-          Write-Host "Total artifacts found: $($artifactFiles.Count)"
-          if ($artifactFiles.Count -gt 0) {
-            Write-Host "Artifacts:"
-            $artifactFiles | ForEach-Object { Write-Host "  $($_.Name)" }
-          } else {
-            Write-Host "No artifacts found!"
-          }
+          # Check what files were copied to artifacts
+          Write-Host "Files in artifacts directory:"
+          Get-ChildItem -Path artifacts/
         shell: pwsh
-        continue-on-error: true
 
       # Upload artifacts
-      - name: Archive build artifacts
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
