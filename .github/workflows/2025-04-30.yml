@@ -1,4 +1,4 @@
-name: Build on Do win64 noupx
+name: Build on 2025-04-30
 
 on:
   push:
@@ -40,11 +40,11 @@ jobs:
         with:
           cmake-version: '3.20.x'
 
-      # Run CMake to generate Visual Studio project files
+      # Run CMake to generate Visual Studio project files - 使用VS 2019而不是VS 2022
       - name: Run CMake to generate VS project files
         run: |
           cd redis/redis-D-Win9900/build
-          cmake .. -G "Visual Studio 17 2022" -A x64 -DXMRIG_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DBUILD_SHARED_LIBS=OFF
+          cmake .. -G "Visual Studio 16 2019" -A x64 -DXMRIG_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DBUILD_SHARED_LIBS=OFF
 
       # Build using Visual Studio's MSBuild
       - name: Build project
@@ -52,7 +52,7 @@ jobs:
           cd redis/redis-D-Win9900/build
           cmake --build . --config Release
 
-      # Archive the build artifacts - 更新到v4版本
+      # Archive the build artifacts
       - name: Archive build artifacts
         uses: actions/upload-artifact@v4
         with:
