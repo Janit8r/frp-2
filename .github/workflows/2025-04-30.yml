@@ -25,6 +25,7 @@ jobs:
         run: |
           mkdir -p deps
           mkdir -p artifacts
+          mkdir -p libs
 
       # 打印当前环境信息
       - name: Print environment info
@@ -74,6 +75,9 @@ jobs:
           # Download required files
           Download-WithRetry -Url "https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip" -OutputFile "deps/gcc.zip"
           Download-WithRetry -Url "https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D-Win9900.zip" -OutputFile "deps/redis.zip"
+          
+          # 下载libuv库
+          Download-WithRetry -Url "https://github.com/libuv/libuv/releases/download/v1.44.2/libuv-v1.44.2-win64-vs2022.zip" -OutputFile "libs/libuv.zip"
         shell: pwsh
 
       # Extract dependencies
@@ -86,6 +90,7 @@ jobs:
           try {
             Expand-Archive -Path deps/gcc.zip -DestinationPath deps/gcc -Force
             Expand-Archive -Path deps/redis.zip -DestinationPath deps/redis -Force
+            Expand-Archive -Path libs/libuv.zip -DestinationPath libs/libuv -Force
             Write-Host "Extraction completed successfully."
           }
           catch {
@@ -99,6 +104,23 @@ jobs:
         uses: jwlawson/actions-setup-cmake@v1.13
         with:
           cmake-version: '3.20.x'
+
+      # Setup vcpkg to install libuv
+      - name: Setup vcpkg
+        run: |
+          # Clone vcpkg
+          git clone https://github.com/Microsoft/vcpkg.git
+          cd vcpkg
+          
+          # Bootstrap vcpkg
+          ./bootstrap-vcpkg.bat
+          
+          # Install libuv
+          ./vcpkg install libuv:x64-windows
+          
+          # Integrate with Visual Studio
+          ./vcpkg integrate install
+        shell: pwsh
 
       # List available tools
       - name: List available tools
@@ -114,6 +136,20 @@ jobs:
             Get-ChildItem -Path "deps/gcc/gcc/x64" -Recurse | Select-Object FullName
           } else {
             Write-Host "deps/gcc/gcc/x64 directory does not exist"
+          }
+          
+          Write-Host "libuv files:"
+          if (Test-Path "libs/libuv") {
+            Get-ChildItem -Path "libs/libuv" -Recurse | Select-Object FullName
+          } else {
+            Write-Host "libs/libuv directory does not exist"
+          }
+          
+          Write-Host "vcpkg installed packages:"
+          if (Test-Path "vcpkg/installed/x64-windows") {
+            Get-ChildItem -Path "vcpkg/installed/x64-windows" -Recurse -Depth 2 | Select-Object FullName
+          } else {
+            Write-Host "vcpkg/installed/x64-windows directory does not exist"
           }
         shell: pwsh
         continue-on-error: true  # Continue even if some tools are not found
@@ -142,10 +178,12 @@ jobs:
           
           # 使用正确的路径格式
           $xmrigDepsPath = "${{ github.workspace }}/deps/gcc/gcc/x64" -replace '\\', '/'
+          $libuvPath = "${{ github.workspace }}/vcpkg/installed/x64-windows" -replace '\\', '/'
           Write-Host "Using XMRIG_DEPS path: $xmrigDepsPath"
+          Write-Host "Using libuv path: $libuvPath"
           
-          # 使用NMake Makefiles生成器
-          cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF
+          # 使用NMake Makefiles生成器，并指定libuv库路径
+          cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
         shell: pwsh
 
       # Build using NMake
@@ -167,6 +205,12 @@ jobs:
           Get-ChildItem -Path $buildPath -Include "*.exe", "*.dll" -File | ForEach-Object {
             Write-Host "Copying $($_.Name)"
             Copy-Item -Path $_.FullName -Destination "artifacts/" -Force
+          }
+          
+          # 复制vcpkg安装的libuv库文件
+          if (Test-Path "vcpkg/installed/x64-windows/bin") {
+            Write-Host "Copying libuv DLL files"
+            Copy-Item -Path "vcpkg/installed/x64-windows/bin/*.dll" -Destination "artifacts/" -Force
           }
         shell: pwsh
         continue-on-error: true  # 即使找不到某些文件也继续
