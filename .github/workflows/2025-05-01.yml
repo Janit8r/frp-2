@@ -15,6 +15,9 @@ jobs:
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
+        with:
+          # 确保检出到正确的分支
+          ref: main
 
       # Setup CMake
       - name: Setup CMake
@@ -33,7 +36,7 @@ jobs:
           mkdir -p artifacts
           mkdir -p build
 
-      # Print environment info
+      # Print environment info and list the directory
       - name: Print environment info
         run: |
           Write-Host "Current working directory: $(Get-Location)"
@@ -42,6 +45,20 @@ jobs:
           cmake --version
           Write-Host "Compiler information:"
           cl.exe 2>&1 | Select-String -Pattern "Version" -SimpleMatch
+          Write-Host "Directory contents:"
+          Get-ChildItem -Path ${{ github.workspace }} -Force
+          if (Test-Path ${{ github.workspace }}/CMakeLists.txt) {
+            Write-Host "CMakeLists.txt found in workspace root"
+          } else {
+            Write-Host "CMakeLists.txt NOT found in workspace root!"
+            # 查找CMakeLists.txt文件
+            $cmakeFiles = Get-ChildItem -Path ${{ github.workspace }} -Recurse -Filter "CMakeLists.txt" | Select-Object -First 5
+            if ($cmakeFiles) {
+              Write-Host "Found CMakeLists.txt files at:"
+              $cmakeFiles | ForEach-Object { Write-Host "  $($_.FullName)" }
+            }
+          }
+        shell: pwsh
 
       # Download dependencies with retry mechanism
       - name: Download dependencies
@@ -105,12 +122,31 @@ jobs:
       # Build with CMake
       - name: Build with CMake
         run: |
+          # 创建并进入构建目录
           cd build
-          cmake .. -G "Visual Studio 17 2022" -A x64 -DXMRIG_DEPS=..\deps
+          
+          # 确认当前目录和上级目录
+          Write-Host "Current directory: $(Get-Location)"
+          Write-Host "Parent directory contents:"
+          Get-ChildItem -Path ..
+
+          # 正确设置CMake依赖路径 - 使用绝对路径
+          $depsPath = Join-Path ${{ github.workspace }} "deps"
+          Write-Host "Using deps path: $depsPath"
+          
+          # 检查CMakeLists.txt位置
+          if (!(Test-Path "../CMakeLists.txt")) {
+            Write-Host "Error: CMakeLists.txt not found in parent directory!"
+            exit 1
+          }
+          
+          # 使用正确的语法配置CMake
+          cmake .. -G "Visual Studio 17 2022" -A x64 "-DXMRIG_DEPS=$depsPath"
           if ($LASTEXITCODE -ne 0) {
             Write-Host "CMake configuration failed"
             exit 1
           }
+          
           cmake --build . --config Release
           if ($LASTEXITCODE -ne 0) {
             Write-Host "Build failed"
