@@ -3,7 +3,7 @@ name: Build on 2025-05-01
 on:
   push:
     branches:
-      - main
+      - dev  # 修改为dev分支
   workflow_dispatch:
 
 jobs:
@@ -16,8 +16,8 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v3
         with:
-          # 确保检出到正确的分支
-          ref: main
+          # 更改为dev分支
+          ref: dev
 
       # Setup CMake
       - name: Setup CMake
