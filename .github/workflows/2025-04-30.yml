@@ -40,11 +40,11 @@ jobs:
         with:
           cmake-version: '3.20.x'
 
-      # Run CMake to generate Visual Studio project files - 使用VS 2019而不是VS 2022
+      # Run CMake to generate Visual Studio project files - using VS 2022 instead of VS 2019
       - name: Run CMake to generate VS project files
         run: |
           cd redis/redis-D-Win9900/build
-          cmake .. -G "Visual Studio 16 2019" -A x64 -DXMRIG_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DBUILD_SHARED_LIBS=OFF
+          cmake .. -G "Visual Studio 17 2022" -A x64 -DXMRIG_DEPS=${{ github.workspace }}/gcc/gcc/x64 -DBUILD_SHARED_LIBS=OFF
 
       # Build using Visual Studio's MSBuild
       - name: Build project
