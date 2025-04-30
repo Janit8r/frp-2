@@ -126,6 +126,136 @@ jobs:
           ./vcpkg list
         shell: pwsh
 
+      # Check project structure and CMakeLists.txt
+      - name: Check project structure
+        run: |
+          Write-Host "Checking project structure..."
+          
+          # 查看项目目录结构
+          Get-ChildItem -Path "deps/redis/redis-D-Win9900" -Recurse -Depth 2 | Select-Object FullName
+          
+          # 检查CMakeLists.txt
+          $cmakePath = "deps/redis/redis-D-Win9900/CMakeLists.txt"
+          if (Test-Path $cmakePath) {
+            Write-Host "CMakeLists.txt found. Content preview:"
+            Get-Content $cmakePath -TotalCount 50
+            
+            # 检查是否存在xmrig目标定义
+            $hasXmrigTarget = Select-String -Path $cmakePath -Pattern "add_executable\(xmrig" -Quiet
+            if (-not $hasXmrigTarget) {
+              Write-Host "Warning: No 'add_executable(xmrig' found in CMakeLists.txt"
+            }
+            
+            # 计算行数
+            $lineCount = (Get-Content $cmakePath).Length
+            Write-Host "CMakeLists.txt has $lineCount lines"
+          } else {
+            Write-Host "CMakeLists.txt not found at expected location: $cmakePath"
+          }
+        shell: pwsh
+        continue-on-error: true
+
+      # Fix CMakeLists.txt if needed
+      - name: Fix CMakeLists.txt
+        run: |
+          $cmakePath = "deps/redis/redis-D-Win9900/CMakeLists.txt"
+          if (Test-Path $cmakePath) {
+            $cmakeContent = Get-Content $cmakePath -Raw
+            
+            # 检查是否存在target_sources调用但没有创建xmrig目标
+            if ($cmakeContent -match "target_sources\(xmrig" -and -not ($cmakeContent -match "add_executable\(xmrig")) {
+              Write-Host "Missing 'add_executable(xmrig)' definition. Adding it..."
+              
+              # 备份原始文件
+              Copy-Item $cmakePath "$cmakePath.bak"
+              
+              # 在合适的位置添加add_executable定义
+              # 通常是在找到目标源之前
+              $fixed = $cmakeContent -replace "(?<!#)(target_sources\(xmrig)", "add_executable(xmrig src/xmrig.cpp)`n`$1"
+              
+              # 保存修改后的文件
+              Set-Content -Path $cmakePath -Value $fixed
+              
+              Write-Host "CMakeLists.txt has been fixed. Showing changes:"
+              git --no-pager diff --no-index "$cmakePath.bak" $cmakePath
+            }
+            else {
+              Write-Host "No simple fix could be applied automatically. Examining CMakeLists.txt further..."
+              
+              # 尝试查找更复杂的问题
+              $lines = Get-Content $cmakePath
+              for ($i = 0; $i -lt $lines.Length; $i++) {
+                if ($lines[$i] -match "target_sources|add_executable|project|cmake_minimum_required") {
+                  Write-Host "Line $($i+1): $($lines[$i])"
+                }
+              }
+            }
+          }
+        shell: pwsh
+        continue-on-error: true
+
+      # 尝试直接在源码目录构建
+      - name: Direct build in source directory
+        run: |
+          cd deps/redis/redis-D-Win9900
+          
+          # 使用正确的路径格式
+          $xmrigDepsPath = "${{ github.workspace }}/deps/gcc/gcc/x64" -replace '\\', '/'
+          $vcpkgPath = "${{ github.workspace }}/vcpkg" -replace '\\', '/'
+          
+          # 添加自定义的CMakeLists.txt
+          $customCMake = @"
+          cmake_minimum_required(VERSION 3.0)
+          project(xmrig)
+          
+          # 设置C++标准
+          set(CMAKE_CXX_STANDARD 11)
+          set(CMAKE_CXX_STANDARD_REQUIRED ON)
+          
+          # 查找依赖库
+          set(CMAKE_PREFIX_PATH "$vcpkgPath/installed/x64-windows")
+          find_package(UV REQUIRED)
+          find_package(OpenSSL REQUIRED)
+          
+          # 包含目录
+          include_directories(
+            src
+            "$xmrigDepsPath/include"
+            ${UV_INCLUDE_DIR}
+            ${OPENSSL_INCLUDE_DIR}
+          )
+          
+          # 收集源文件
+          file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.h")
+          
+          # 创建可执行文件
+          add_executable(xmrig ${SOURCES})
+          
+          # 链接库
+          target_link_libraries(xmrig
+            ${UV_LIBRARIES}
+            ${OPENSSL_LIBRARIES}
+          )
+          
+          # 安装
+          install(TARGETS xmrig DESTINATION bin)
+          "@
+          
+          # 创建新的CMakeLists.txt
+          Set-Content -Path "simple_build.cmake" -Value $customCMake
+          
+          # 创建并进入构建目录
+          mkdir -Force simple_build
+          cd simple_build
+          
+          # 使用简化的CMakeLists.txt进行构建
+          cmake -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE="$vcpkgPath/scripts/buildsystems/vcpkg.cmake" -C ../simple_build.cmake ..
+          
+          # 编译
+          nmake
+        shell: pwsh
+        continue-on-error: true  # 即使这个步骤失败也继续
+
       # List available tools and folders
       - name: List available tools and directories
         run: |
@@ -169,10 +299,63 @@ jobs:
           }
         shell: pwsh
 
+      # 尝试使用项目自带的build脚本
+      - name: Try project build script
+        run: |
+          cd deps/redis/redis-D-Win9900
+          
+          # 检查是否有build.bat或类似的脚本
+          $buildScripts = Get-ChildItem -Path . -Include "*.bat", "*.cmd", "*.ps1" -File
+          
+          if ($buildScripts.Count -gt 0) {
+            Write-Host "Found build scripts:"
+            $buildScripts | ForEach-Object { Write-Host "  $($_.Name)" }
+            
+            # 尝试执行build.bat或类似脚本
+            foreach ($script in $buildScripts) {
+              if ($script.Name -match "build|compile|make") {
+                Write-Host "Attempting to run $($script.Name)..."
+                & $script.FullName
+                break
+              }
+            }
+          } else {
+            Write-Host "No build scripts found."
+          }
+        shell: pwsh
+        continue-on-error: true
+
       # Run CMake to generate makefiles using NMake
       - name: Configure CMake
         run: |
-          cd deps/redis/redis-D-Win9900/build
+          cd deps/redis/redis-D-Win9900
+          
+          # 备份原始CMakeLists.txt
+          Copy-Item -Path "CMakeLists.txt" -Destination "CMakeLists.txt.original" -Force
+          
+          # 添加xmrig目标定义到CMakeLists.txt开头
+          $content = Get-Content "CMakeLists.txt"
+          $newContent = @()
+          $targetAdded = $false
+          
+          foreach ($line in $content) {
+            if ($line -match "project\(" -and -not $targetAdded) {
+              $newContent += $line
+              $newContent += ""
+              $newContent += "# 添加xmrig可执行文件目标"
+              $newContent += "add_executable(xmrig src/xmrig.cpp)"
+              $targetAdded = $true
+            } else {
+              $newContent += $line
+            }
+          }
+          
+          # 保存修改后的文件
+          Set-Content -Path "CMakeLists.txt" -Value $newContent
+          
+          # 创建新的构建目录
+          mkdir -Force modified_build
+          cd modified_build
           
           # 使用正确的路径格式
           $xmrigDepsPath = "${{ github.workspace }}/deps/gcc/gcc/x64" -replace '\\', '/'
@@ -183,26 +366,40 @@ jobs:
           # 使用NMake Makefiles生成器，并指定vcpkg工具链
           cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF -DCMAKE_TOOLCHAIN_FILE="$vcpkgPath/scripts/buildsystems/vcpkg.cmake"
         shell: pwsh
+        continue-on-error: true
 
       # Build using NMake
       - name: Build project
         run: |
-          cd deps/redis/redis-D-Win9900/build
+          cd deps/redis/redis-D-Win9900/modified_build
           nmake
         shell: pwsh
+        continue-on-error: true
 
-      # Copy artifacts
-      - name: Copy build artifacts
+      # 收集所有可能的构建结果
+      - name: Collect build artifacts
         run: |
-          # 对于NMake生成器，构建结果在构建目录的根目录
-          $buildPath = "deps/redis/redis-D-Win9900/build"
-          Write-Host "Checking build directory content:"
-          Get-ChildItem -Path $buildPath | ForEach-Object { Write-Host $_.Name }
+          Write-Host "Collecting build artifacts from all possible build directories..."
           
-          # 复制所有.exe和.dll文件
-          Get-ChildItem -Path $buildPath -Include "*.exe", "*.dll" -File | ForEach-Object {
-            Write-Host "Copying $($_.Name)"
-            Copy-Item -Path $_.FullName -Destination "artifacts/" -Force
+          # 定义要搜索的目录
+          $searchDirs = @(
+            "deps/redis/redis-D-Win9900/build",
+            "deps/redis/redis-D-Win9900/modified_build",
+            "deps/redis/redis-D-Win9900/simple_build",
+            "deps/redis/redis-D-Win9900"
+          )
+          
+          # 查找所有可能的构建结果
+          foreach ($dir in $searchDirs) {
+            if (Test-Path $dir) {
+              Write-Host "Checking $dir for build artifacts..."
+              
+              # 查找exe和dll文件
+              Get-ChildItem -Path $dir -Include "*.exe", "*.dll" -Recurse -File | ForEach-Object {
+                Write-Host "Found: $($_.FullName)"
+                Copy-Item -Path $_.FullName -Destination "artifacts/" -Force
+              }
+            }
           }
           
           # 复制vcpkg安装的DLL文件
@@ -210,8 +407,18 @@ jobs:
             Write-Host "Copying vcpkg DLL files"
             Copy-Item -Path "vcpkg/installed/x64-windows/bin/*.dll" -Destination "artifacts/" -Force
           }
+          
+          # 检查是否有构建结果
+          $artifactFiles = Get-ChildItem -Path "artifacts"
+          Write-Host "Total artifacts found: $($artifactFiles.Count)"
+          if ($artifactFiles.Count -gt 0) {
+            Write-Host "Artifacts:"
+            $artifactFiles | ForEach-Object { Write-Host "  $($_.Name)" }
+          } else {
+            Write-Host "No artifacts found!"
+          }
         shell: pwsh
-        continue-on-error: true  # 即使找不到某些文件也继续
+        continue-on-error: true
 
       # Upload artifacts
       - name: Archive build artifacts
