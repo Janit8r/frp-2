@@ -10,7 +10,7 @@ jobs:
   build-windows:
     runs-on: windows-latest
     env:
-      REPO_PATH: D:/a/frp-2/frp-2  # GitHub Actions的固定工作目录路径
+      REPO_PATH: ${{ github.workspace }}  # Using GitHub workspace variable for accurate path
 
     steps:
       - name: Checkout source code
@@ -86,7 +86,7 @@ jobs:
           # Extract with error handling
           try {
             Expand-Archive -Path deps/gcc.zip -DestinationPath deps/gcc -Force
-            Expand-Archive -Path deps/redis.zip -DestinationPath deps/redis -Force
+            Expand-Archive -Path deps/redis.zip -DestinationPath deps/ -Force
             Write-Host "Extraction completed successfully."
           }
           catch {
@@ -132,10 +132,10 @@ jobs:
           Write-Host "Checking project structure..."
           
           # 查看项目目录结构
-          Get-ChildItem -Path "deps/redis/redis-D-Win9900" -Recurse -Depth 2 | Select-Object FullName
+          Get-ChildItem -Path . -Recurse -Depth 2 | Select-Object FullName
           
           # 检查CMakeLists.txt
-          $cmakePath = "deps/redis/redis-D-Win9900/CMakeLists.txt"
+          $cmakePath = "CMakeLists.txt"
           if (Test-Path $cmakePath) {
             Write-Host "CMakeLists.txt found. Content preview:"
             Get-Content $cmakePath -TotalCount 50
@@ -145,30 +145,18 @@ jobs:
             Select-String -Path $cmakePath -Pattern "xmrig" | ForEach-Object {
               Write-Host "Line $($_.LineNumber): $($_.Line)"
             }
-            
-            # 查找target_sources行
-            Write-Host "target_sources lines:"
-            Select-String -Path $cmakePath -Pattern "target_sources" | ForEach-Object {
-              Write-Host "Line $($_.LineNumber): $($_.Line)"
-            }
-            
-            # 计算行数
-            $lineCount = (Get-Content $cmakePath).Length
-            Write-Host "CMakeLists.txt has $lineCount lines"
           } else {
             Write-Host "CMakeLists.txt not found at expected location: $cmakePath"
           }
         shell: pwsh
         continue-on-error: true
 
-      # 尝试使用带有CMAKE_MODULE_PATH的方式构建
-      - name: Configure with module path fix
+      # 使用CMake构建项目
+      - name: Build with CMake
         run: |
-          cd deps/redis/redis-D-Win9900
-          
           # 创建构建目录
-          mkdir -Force cmake_build
-          cd cmake_build
+          mkdir -Force build
+          cd build
           
           # 使用正确的路径格式
           $xmrigDepsPath = "${{ github.workspace }}/deps/gcc/gcc/x64" -replace '\\', '/'
@@ -176,49 +164,19 @@ jobs:
           Write-Host "Using XMRIG_DEPS path: $xmrigDepsPath"
           Write-Host "Using vcpkg path: $vcpkgPath"
           
-          # 查找源文件目录中的modules目录
-          $modulePath = ""
-          if (Test-Path "../cmake") {
-            $modulePath = "../cmake"
-          } elseif (Test-Path "../CMake") {
-            $modulePath = "../CMake"
-          }
+          # 配置CMake
+          cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF -DCMAKE_TOOLCHAIN_FILE="$vcpkgPath/scripts/buildsystems/vcpkg.cmake"
           
-          Write-Host "Module path: $modulePath"
-          
-          # 使用-DCMAKE_MODULE_PATH指定模块路径，使项目能找到其依赖项
-          cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF -DCMAKE_TOOLCHAIN_FILE="$vcpkgPath/scripts/buildsystems/vcpkg.cmake" -DCMAKE_MODULE_PATH="$modulePath"
-        shell: pwsh
-        continue-on-error: true
-
-      # 尝试定位和查看错误日志
-      - name: Check CMake error logs
-        run: |
-          Write-Host "Checking CMake error logs..."
-          
-          # 定义可能的日志位置
-          $logDirs = @(
-            "deps/redis/redis-D-Win9900/modified_build/CMakeFiles",
-            "deps/redis/redis-D-Win9900/build/CMakeFiles",
-            "deps/redis/redis-D-Win9900/cmake_build/CMakeFiles"
-          )
-          
-          foreach ($dir in $logDirs) {
-            if (Test-Path "$dir/CMakeError.log") {
-              Write-Host "Found CMakeError.log in $dir"
-              Write-Host "==== Error Log Content ===="
-              Get-Content "$dir/CMakeError.log" | Select-Object -Last 100
-              Write-Host "==========================="
-            }
-          }
+          # 构建
+          nmake
         shell: pwsh
         continue-on-error: true
 
       # 尝试单独构建xmrig.cpp
       - name: Try direct compile of xmrig.cpp
         run: |
-          # 定位xmrig.cpp
-          $sourcePath = "deps/redis/redis-D-Win9900/src/xmrig.cpp"
+          # 定位xmrig.cpp (注意使用正确的路径)
+          $sourcePath = "src/xmrig.cpp"
           if (Test-Path $sourcePath) {
             Write-Host "Found xmrig.cpp at $sourcePath"
             
@@ -231,91 +189,29 @@ jobs:
               mkdir -Force artifacts/direct_build -ErrorAction Stop
               cd artifacts/direct_build
               
-              # 尝试直接编译
+              # 尝试直接编译 (注意这里使用相对路径参考源码的实际位置)
               Write-Host "Attempting direct compilation of xmrig.cpp..."
-              cl.exe /EHsc /MD /I"$xmrigDepsPath/include" /I"$vcpkgIncludePath" /I"../../deps/redis/redis-D-Win9900/src" "$sourcePath" /link /LIBPATH:"$xmrigDepsPath/lib" /LIBPATH:"${{ github.workspace }}/vcpkg/installed/x64-windows/lib" uv.lib libcrypto.lib user32.lib
+              cl.exe /EHsc /MD /I"$xmrigDepsPath/include" /I"$vcpkgIncludePath" /I"${{ github.workspace }}/src" "../../$sourcePath" /link /LIBPATH:"$xmrigDepsPath/lib" /LIBPATH:"${{ github.workspace }}/vcpkg/installed/x64-windows/lib" uv.lib libcrypto.lib user32.lib
               
-              if (Test-Path "xmrig.exe") {
-                Write-Host "Successfully compiled xmrig.exe!"
-                Copy-Item -Path "xmrig.exe" -Destination "../../artifacts/" -Force
+              if (Test-Path "xmrig.obj") {
+                Write-Host "Successfully compiled xmrig.obj!"
+                Copy-Item -Path "xmrig.obj" -Destination "../../artifacts/" -Force
               }
             }
             catch {
               Write-Host "Direct compilation failed: $_"
             }
           } else {
-            Write-Host "Could not find xmrig.cpp"
+            Write-Host "Could not find xmrig.cpp at $sourcePath"
+            # 尝试查找xmrig.cpp文件的位置
+            $foundFiles = Get-ChildItem -Path ${{ github.workspace }} -Recurse -Filter "xmrig.cpp" | Select-Object -First 5
+            if ($foundFiles) {
+              Write-Host "Found xmrig.cpp at alternative locations:"
+              $foundFiles | ForEach-Object { Write-Host "  $($_.FullName)" }
+            }
           }
         shell: pwsh
         continue-on-error: true
-
-      # 尝试修复target_sources问题
-      - name: Fix target_sources issue
-        run: |
-          cd deps/redis/redis-D-Win9900
-          
-          # 修改CMakeLists.txt修复target_sources调用问题
-          $cmakePath = "CMakeLists.txt"
-          $content = Get-Content $cmakePath -Raw
-          
-          # 查找并修复target_sources问题，通常是多个add_executable或target_sources之间的冲突
-          if ($content -match "target_sources\s*\(\s*xmrig") {
-            Write-Host "Found target_sources for xmrig, modifying CMakeLists.txt..."
-            
-            # 备份原始文件
-            Copy-Item -Path $cmakePath -Destination "$cmakePath.bak" -Force
-            
-            # 替换所有目标名为xmrig的target_sources调用为条件检查
-            $fixed = $content -replace "(target_sources\s*\(\s*xmrig)", "if(TARGET xmrig)`n`$1"
-            $fixed = $fixed -replace "(target_sources\s*\(\s*xmrig[^)]*\))", "`$1`nendif()"
-            
-            # 保存修改
-            Set-Content -Path $cmakePath -Value $fixed -Force
-            
-            # 创建并进入新的构建目录
-            mkdir -Force fixed_build
-            cd fixed_build
-            
-            # 配置CMake
-            $xmrigDepsPath = "${{ github.workspace }}/deps/gcc/gcc/x64" -replace '\\', '/'
-            $vcpkgPath = "${{ github.workspace }}/vcpkg" -replace '\\', '/'
-            Write-Host "Using XMRIG_DEPS path: $xmrigDepsPath"
-            Write-Host "Using vcpkg path: $vcpkgPath"
-            
-            # 使用修复后的CMakeLists.txt构建
-            cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF -DCMAKE_TOOLCHAIN_FILE="$vcpkgPath/scripts/buildsystems/vcpkg.cmake"
-            
-            # 构建
-            nmake
-          }
-        shell: pwsh
-        continue-on-error: true
-
-      # List available tools and folders
-      - name: List available tools and directories
-        run: |
-          Write-Host "Available build tools:"
-          where.exe cl
-          where.exe link
-          where.exe nmake
-          where.exe ml64  # Check for MASM
-          
-          Write-Host "Directories in deps/gcc/gcc/x64:"
-          if (Test-Path "deps/gcc/gcc/x64") {
-            Get-ChildItem -Path "deps/gcc/gcc/x64" -Recurse -Depth 2 | ForEach-Object { Write-Host "  $_" }
-          } else {
-            Write-Host "deps/gcc/gcc/x64 directory does not exist"
-          }
-          
-          Write-Host "vcpkg installed packages:"
-          if (Test-Path "vcpkg/installed/x64-windows") {
-            Get-ChildItem -Path "vcpkg/installed/x64-windows/include" -Directory | ForEach-Object { Write-Host "  $_" }
-            Get-ChildItem -Path "vcpkg/installed/x64-windows/lib" -File | ForEach-Object { Write-Host "  $_" }
-          } else {
-            Write-Host "vcpkg/installed/x64-windows directory does not exist"
-          }
-        shell: pwsh
-        continue-on-error: true  # Continue even if some directories don't exist
 
       # 收集所有可能的构建结果
       - name: Collect build artifacts
@@ -324,12 +220,8 @@ jobs:
           
           # 定义要搜索的目录
           $searchDirs = @(
-            "deps/redis/redis-D-Win9900/build",
-            "deps/redis/redis-D-Win9900/modified_build",
-            "deps/redis/redis-D-Win9900/simple_build",
-            "deps/redis/redis-D-Win9900/cmake_build",
-            "deps/redis/redis-D-Win9900/fixed_build",
-            "deps/redis/redis-D-Win9900"
+            "build",
+            "artifacts/direct_build"
           )
           
           # 查找所有可能的构建结果
@@ -338,7 +230,7 @@ jobs:
               Write-Host "Checking $dir for build artifacts..."
               
               # 查找exe和dll文件
-              Get-ChildItem -Path $dir -Include "*.exe", "*.dll" -Recurse -File | ForEach-Object {
+              Get-ChildItem -Path $dir -Include "*.exe", "*.dll", "*.obj" -Recurse -File | ForEach-Object {
                 Write-Host "Found: $($_.FullName)"
                 Copy-Item -Path $_.FullName -Destination "artifacts/" -Force
               }
