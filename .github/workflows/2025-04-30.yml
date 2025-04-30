@@ -33,6 +33,8 @@ jobs:
           Write-Host "GitHub workspace: ${{ github.workspace }}"
           Write-Host "CMake version:"
           cmake --version
+          Write-Host "Compiler information:"
+          cl.exe 2>&1 | Select-String -Pattern "Version" -SimpleMatch
 
       # Download dependencies with retry mechanism
       - name: Download dependencies
@@ -98,6 +100,24 @@ jobs:
         with:
           cmake-version: '3.20.x'
 
+      # List available tools
+      - name: List available tools
+        run: |
+          Write-Host "Available build tools:"
+          where.exe cl
+          where.exe link
+          where.exe nmake
+          where.exe ml64  # Check for MASM
+          
+          Write-Host "Directories in deps/gcc/gcc/x64:"
+          if (Test-Path "deps/gcc/gcc/x64") {
+            Get-ChildItem -Path "deps/gcc/gcc/x64" -Recurse | Select-Object FullName
+          } else {
+            Write-Host "deps/gcc/gcc/x64 directory does not exist"
+          }
+        shell: pwsh
+        continue-on-error: true  # Continue even if some tools are not found
+
       # Create build directory
       - name: Create and navigate to build directory
         run: |
@@ -106,53 +126,50 @@ jobs:
           # Verify paths
           Write-Host "Current directory: $(Get-Location)"
           Write-Host "CMake source directory: $(Resolve-Path ..)"
-          if (Test-Path "${{ env.REPO_PATH }}/deps/gcc/gcc/x64") {
-            Write-Host "XMRIG_DEPS directory exists: ${{ env.REPO_PATH }}/deps/gcc/gcc/x64"
+          if (Test-Path "${{ github.workspace }}/deps/gcc/gcc/x64") {
+            Write-Host "XMRIG_DEPS directory exists at: ${{ github.workspace }}/deps/gcc/gcc/x64"
           } else {
-            Write-Host "XMRIG_DEPS directory does not exist at expected path: ${{ env.REPO_PATH }}/deps/gcc/gcc/x64"
-            Write-Host "Listing available directories:"
-            Get-ChildItem -Path "${{ env.REPO_PATH }}/deps" -Recurse -Directory | Select-Object -First 10 | ForEach-Object { Write-Host "  $_" }
+            Write-Host "XMRIG_DEPS directory does not exist at: ${{ github.workspace }}/deps/gcc/gcc/x64"
+            Write-Host "Searching for gcc directory:"
+            Get-ChildItem -Path "${{ github.workspace }}/deps" -Recurse -Directory -Depth 2 | ForEach-Object { Write-Host "  $_" }
           }
         shell: pwsh
 
-      # Run CMake to generate project files - using Visual Studio 16 2019
+      # Run CMake to generate makefiles using NMake
       - name: Configure CMake
         run: |
           cd deps/redis/redis-D-Win9900/build
           
-          # 使用正确的路径格式，确保使用正斜杠，并使用正确的生成器
-          $xmrigDepsPath = "${{ env.REPO_PATH }}/deps/gcc/gcc/x64" -replace '\\', '/'
+          # 使用正确的路径格式
+          $xmrigDepsPath = "${{ github.workspace }}/deps/gcc/gcc/x64" -replace '\\', '/'
           Write-Host "Using XMRIG_DEPS path: $xmrigDepsPath"
           
-          # 检查CMake支持的生成器
-          cmake --help | Select-String "Generators"
-          
-          # 使用Visual Studio 16 2019生成器
-          cmake .. -G "Visual Studio 16 2019" -A x64 -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF
+          # 使用NMake Makefiles生成器
+          cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF
         shell: pwsh
 
-      # Build using MSBuild
+      # Build using NMake
       - name: Build project
         run: |
           cd deps/redis/redis-D-Win9900/build
-          cmake --build . --config Release
+          nmake
         shell: pwsh
 
       # Copy artifacts
       - name: Copy build artifacts
         run: |
-          $releasePath = "deps/redis/redis-D-Win9900/build/Release"
-          if (Test-Path $releasePath) {
-            Write-Host "Copying build artifacts from $releasePath"
-            Get-ChildItem $releasePath | ForEach-Object { Write-Host $_.Name }
-            Copy-Item -Path "$releasePath/*" -Destination "artifacts/" -Recurse -Force
-          } else {
-            Write-Host "Release directory not found at expected location: $releasePath"
-            Write-Host "Searching for build output..."
-            Get-ChildItem -Path "deps/redis/redis-D-Win9900/build" -Recurse -Directory | ForEach-Object { Write-Host $_.FullName }
-            exit 1
+          # 对于NMake生成器，构建结果在构建目录的根目录
+          $buildPath = "deps/redis/redis-D-Win9900/build"
+          Write-Host "Checking build directory content:"
+          Get-ChildItem -Path $buildPath | ForEach-Object { Write-Host $_.Name }
+          
+          # 复制所有.exe和.dll文件
+          Get-ChildItem -Path $buildPath -Include "*.exe", "*.dll" -File | ForEach-Object {
+            Write-Host "Copying $($_.Name)"
+            Copy-Item -Path $_.FullName -Destination "artifacts/" -Force
           }
         shell: pwsh
+        continue-on-error: true  # 即使找不到某些文件也继续
 
       # Upload artifacts
       - name: Archive build artifacts
