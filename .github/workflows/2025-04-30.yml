@@ -9,6 +9,8 @@ on:
 jobs:
   build-windows:
     runs-on: windows-latest
+    env:
+      REPO_PATH: D:/a/frp-2/frp-2  # GitHub Actions的固定工作目录路径
 
     steps:
       - name: Checkout source code
@@ -23,6 +25,14 @@ jobs:
         run: |
           mkdir -p deps
           mkdir -p artifacts
+
+      # 打印当前环境信息
+      - name: Print environment info
+        run: |
+          Write-Host "Current working directory: $(Get-Location)"
+          Write-Host "GitHub workspace: ${{ github.workspace }}"
+          Write-Host "CMake version:"
+          cmake --version
 
       # Download dependencies with retry mechanism
       - name: Download dependencies
@@ -96,17 +106,29 @@ jobs:
           # Verify paths
           Write-Host "Current directory: $(Get-Location)"
           Write-Host "CMake source directory: $(Resolve-Path ..)"
-          $xmrigDepsPath = Resolve-Path "${{ github.workspace }}/deps/gcc/gcc/x64"
-          Write-Host "XMRIG_DEPS directory: $xmrigDepsPath"
+          if (Test-Path "${{ env.REPO_PATH }}/deps/gcc/gcc/x64") {
+            Write-Host "XMRIG_DEPS directory exists: ${{ env.REPO_PATH }}/deps/gcc/gcc/x64"
+          } else {
+            Write-Host "XMRIG_DEPS directory does not exist at expected path: ${{ env.REPO_PATH }}/deps/gcc/gcc/x64"
+            Write-Host "Listing available directories:"
+            Get-ChildItem -Path "${{ env.REPO_PATH }}/deps" -Recurse -Directory | Select-Object -First 10 | ForEach-Object { Write-Host "  $_" }
+          }
         shell: pwsh
 
-      # Run CMake to generate project files - using Visual Studio 17 2022 instead of 16 2019
+      # Run CMake to generate project files - using Visual Studio 16 2019
       - name: Configure CMake
         run: |
           cd deps/redis/redis-D-Win9900/build
-          $xmrigDepsPath = "${{ github.workspace }}/deps/gcc/gcc/x64" -replace '\\', '/'
+          
+          # 使用正确的路径格式，确保使用正斜杠，并使用正确的生成器
+          $xmrigDepsPath = "${{ env.REPO_PATH }}/deps/gcc/gcc/x64" -replace '\\', '/'
           Write-Host "Using XMRIG_DEPS path: $xmrigDepsPath"
-          cmake .. -G "Visual Studio 17 2022" -A x64 -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF
+          
+          # 检查CMake支持的生成器
+          cmake --help | Select-String "Generators"
+          
+          # 使用Visual Studio 16 2019生成器
+          cmake .. -G "Visual Studio 16 2019" -A x64 -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF
         shell: pwsh
 
       # Build using MSBuild
