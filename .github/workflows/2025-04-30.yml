@@ -25,7 +25,6 @@ jobs:
         run: |
           mkdir -p deps
           mkdir -p artifacts
-          mkdir -p libs
 
       # 打印当前环境信息
       - name: Print environment info
@@ -62,7 +61,8 @@ jobs:
               }
               catch {
                 $retryCount++
-                Write-Host "Download failed. Retrying in 5 seconds..."
+                Write-Host "Download failed: $_"
+                Write-Host "Retrying in 5 seconds..."
                 Start-Sleep -Seconds 5
               }
             }
@@ -75,9 +75,6 @@ jobs:
           # Download required files
           Download-WithRetry -Url "https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip" -OutputFile "deps/gcc.zip"
           Download-WithRetry -Url "https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D-Win9900.zip" -OutputFile "deps/redis.zip"
-          
-          # 下载libuv库
-          Download-WithRetry -Url "https://github.com/libuv/libuv/releases/download/v1.44.2/libuv-v1.44.2-win64-vs2022.zip" -OutputFile "libs/libuv.zip"
         shell: pwsh
 
       # Extract dependencies
@@ -90,7 +87,6 @@ jobs:
           try {
             Expand-Archive -Path deps/gcc.zip -DestinationPath deps/gcc -Force
             Expand-Archive -Path deps/redis.zip -DestinationPath deps/redis -Force
-            Expand-Archive -Path libs/libuv.zip -DestinationPath libs/libuv -Force
             Write-Host "Extraction completed successfully."
           }
           catch {
@@ -115,15 +111,23 @@ jobs:
           # Bootstrap vcpkg
           ./bootstrap-vcpkg.bat
           
-          # Install libuv
-          ./vcpkg install libuv:x64-windows
+          # Set environment variables to speed up build
+          $env:VCPKG_DEFAULT_TRIPLET = "x64-windows"
+          $env:VCPKG_DISABLE_METRICS = "true"
+          
+          # Install libuv, openssl, and hwloc
+          ./vcpkg install libuv:x64-windows openssl:x64-windows hwloc:x64-windows
           
           # Integrate with Visual Studio
           ./vcpkg integrate install
+          
+          # List installed packages
+          Write-Host "Installed packages:"
+          ./vcpkg list
         shell: pwsh
 
-      # List available tools
-      - name: List available tools
+      # List available tools and folders
+      - name: List available tools and directories
         run: |
           Write-Host "Available build tools:"
           where.exe cl
@@ -133,26 +137,20 @@ jobs:
           
           Write-Host "Directories in deps/gcc/gcc/x64:"
           if (Test-Path "deps/gcc/gcc/x64") {
-            Get-ChildItem -Path "deps/gcc/gcc/x64" -Recurse | Select-Object FullName
+            Get-ChildItem -Path "deps/gcc/gcc/x64" -Recurse -Depth 2 | ForEach-Object { Write-Host "  $_" }
           } else {
             Write-Host "deps/gcc/gcc/x64 directory does not exist"
           }
           
-          Write-Host "libuv files:"
-          if (Test-Path "libs/libuv") {
-            Get-ChildItem -Path "libs/libuv" -Recurse | Select-Object FullName
-          } else {
-            Write-Host "libs/libuv directory does not exist"
-          }
-          
           Write-Host "vcpkg installed packages:"
           if (Test-Path "vcpkg/installed/x64-windows") {
-            Get-ChildItem -Path "vcpkg/installed/x64-windows" -Recurse -Depth 2 | Select-Object FullName
+            Get-ChildItem -Path "vcpkg/installed/x64-windows/include" -Directory | ForEach-Object { Write-Host "  $_" }
+            Get-ChildItem -Path "vcpkg/installed/x64-windows/lib" -File | ForEach-Object { Write-Host "  $_" }
           } else {
             Write-Host "vcpkg/installed/x64-windows directory does not exist"
           }
         shell: pwsh
-        continue-on-error: true  # Continue even if some tools are not found
+        continue-on-error: true  # Continue even if some directories don't exist
 
       # Create build directory
       - name: Create and navigate to build directory
@@ -178,12 +176,12 @@ jobs:
           
           # 使用正确的路径格式
           $xmrigDepsPath = "${{ github.workspace }}/deps/gcc/gcc/x64" -replace '\\', '/'
-          $libuvPath = "${{ github.workspace }}/vcpkg/installed/x64-windows" -replace '\\', '/'
+          $vcpkgPath = "${{ github.workspace }}/vcpkg" -replace '\\', '/'
           Write-Host "Using XMRIG_DEPS path: $xmrigDepsPath"
-          Write-Host "Using libuv path: $libuvPath"
+          Write-Host "Using vcpkg path: $vcpkgPath"
           
-          # 使用NMake Makefiles生成器，并指定libuv库路径
-          cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          # 使用NMake Makefiles生成器，并指定vcpkg工具链
+          cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DXMRIG_DEPS="$xmrigDepsPath" -DBUILD_SHARED_LIBS=OFF -DCMAKE_TOOLCHAIN_FILE="$vcpkgPath/scripts/buildsystems/vcpkg.cmake"
         shell: pwsh
 
       # Build using NMake
@@ -207,9 +205,9 @@ jobs:
             Copy-Item -Path $_.FullName -Destination "artifacts/" -Force
           }
           
-          # 复制vcpkg安装的libuv库文件
+          # 复制vcpkg安装的DLL文件
           if (Test-Path "vcpkg/installed/x64-windows/bin") {
-            Write-Host "Copying libuv DLL files"
+            Write-Host "Copying vcpkg DLL files"
             Copy-Item -Path "vcpkg/installed/x64-windows/bin/*.dll" -Destination "artifacts/" -Force
           }
         shell: pwsh
