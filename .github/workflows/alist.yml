@@ -43,6 +43,26 @@ jobs:
           else
             echo "找到Go模块目录: $GO_MOD_DIR"
             echo "GO_MOD_DIR=$GO_MOD_DIR" >> $GITHUB_ENV
+            
+            # 显示go.mod文件内容
+            echo "go.mod内容:"
+            cat $GO_MOD_DIR/go.mod
+          fi
+
+      # 添加修复go.mod版本号的步骤
+      - name: Fix invalid Go version in go.mod
+        run: |
+          echo "修复go.mod文件中的Go版本..."
+          # 检查go.mod是否存在无效版本格式
+          if grep -q "go 1\.[0-9]\+\.[0-9]\+" $GO_MOD_DIR/go.mod; then
+            # 保存原始文件用于参考
+            cp $GO_MOD_DIR/go.mod $GO_MOD_DIR/go.mod.original
+            # 修复版本格式 (例如 "go 1.23.4" 修改为 "go 1.23")
+            sed -i -E 's/go (1\.[0-9]+)\.[0-9]+/go \1/g' $GO_MOD_DIR/go.mod
+            echo "修复后的go.mod内容:"
+            cat $GO_MOD_DIR/go.mod
+          else
+            echo "go.mod文件版本格式正确，无需修复"
           fi
 
       - name: Build AList
@@ -145,6 +165,26 @@ jobs:
           else
             echo "找到Go模块目录: $GO_MOD_DIR"
             echo "GO_MOD_DIR=$GO_MOD_DIR" >> $GITHUB_ENV
+            
+            # 显示go.mod文件内容
+            echo "go.mod内容:"
+            cat $GO_MOD_DIR/go.mod
+          fi
+
+      # 添加修复go.mod版本号的步骤
+      - name: Fix invalid Go version in go.mod
+        run: |
+          echo "修复go.mod文件中的Go版本..."
+          # 检查go.mod是否存在无效版本格式
+          if grep -q "go 1\.[0-9]\+\.[0-9]\+" $GO_MOD_DIR/go.mod; then
+            # 保存原始文件用于参考
+            cp $GO_MOD_DIR/go.mod $GO_MOD_DIR/go.mod.original
+            # 修复版本格式 (例如 "go 1.23.4" 修改为 "go 1.23")
+            sed -i -E 's/go (1\.[0-9]+)\.[0-9]+/go \1/g' $GO_MOD_DIR/go.mod
+            echo "修复后的go.mod内容:"
+            cat $GO_MOD_DIR/go.mod
+          else
+            echo "go.mod文件版本格式正确，无需修复"
           fi
 
       - name: Set up Go
