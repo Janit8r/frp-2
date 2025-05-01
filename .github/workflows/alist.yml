@@ -48,7 +48,8 @@ jobs:
           ls -la 99-alist-performance.conf || echo "性能配置不存在"
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        # 更新到v4版本
+        uses: actions/upload-artifact@v4
         with:
           name: alist-build
           path: |
@@ -129,7 +130,8 @@ jobs:
           fi
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        # 更新到v4版本
+        uses: actions/upload-artifact@v4
         with:
           name: alist-${{ matrix.goos }}-${{ matrix.goarch }}-package
           path: |
