@@ -28,37 +28,88 @@ jobs:
       - name: Extract ZIP file
         run: unzip abc.zip -d workspace
 
+      - name: Debug - List workspace directory contents
+        run: |
+          ls -la workspace
+          find workspace -name "go.mod" -type f | sort
+
+      - name: Navigate to correct Go module directory
+        run: |
+          # 根据解压后的目录结构，找到正确的Go模块目录
+          GO_MOD_DIR=$(find workspace -name "go.mod" -type f -exec dirname {} \; | head -n 1)
+          if [ -z "$GO_MOD_DIR" ]; then
+            echo "错误: 找不到go.mod文件，请检查ZIP包的目录结构"
+            exit 1
+          else
+            echo "找到Go模块目录: $GO_MOD_DIR"
+            echo "GO_MOD_DIR=$GO_MOD_DIR" >> $GITHUB_ENV
+          fi
+
       - name: Build AList
         run: |
-          cd workspace
+          cd $GO_MOD_DIR
+          echo "当前工作目录: $(pwd)"
           go mod tidy
           go build -o alist
 
       - name: Copy optimization files
         run: |
-          cd workspace
+          cd $GO_MOD_DIR
           # 确保优化配置文件存在
-          if [ -f "data/config.json" ]; then
-            echo "性能优化配置文件已存在"
-          fi
+          echo "检查配置文件..."
           
           # 验证性能优化文件存在
-          ls -la data/config.json || echo "配置文件不存在"
-          ls -la alist.service || echo "服务文件不存在"
-          ls -la 99-alist-performance.conf || echo "性能配置不存在"
+          ls -la || echo "无法列出目录内容"
+          ls -la data/config.json 2>/dev/null || echo "配置文件不存在"
+          ls -la alist.service 2>/dev/null || echo "服务文件不存在"
+          ls -la 99-alist-performance.conf 2>/dev/null || echo "性能配置不存在"
+          
+          # 如果文件不在当前目录，尝试在上层目录查找
+          if [ ! -f "data/config.json" ] || [ ! -f "alist.service" ] || [ ! -f "99-alist-performance.conf" ]; then
+            echo "尝试在父目录查找配置文件..."
+            cd $GITHUB_WORKSPACE/workspace
+            ls -la data/config.json 2>/dev/null || echo "父目录中也找不到配置文件"
+            ls -la alist.service 2>/dev/null || echo "父目录中也找不到服务文件"
+            ls -la 99-alist-performance.conf 2>/dev/null || echo "父目录中也找不到性能配置"
+          fi
+
+      - name: Organize files
+        run: |
+          # 创建发布目录
+          mkdir -p $GITHUB_WORKSPACE/release
+          
+          # 复制二进制文件
+          cp $GO_MOD_DIR/alist $GITHUB_WORKSPACE/release/
+          
+          # 查找并复制配置文件
+          find $GITHUB_WORKSPACE/workspace -name "config.json" -type f -exec cp {} $GITHUB_WORKSPACE/release/ \; || echo "找不到config.json"
+          find $GITHUB_WORKSPACE/workspace -name "alist.service" -type f -exec cp {} $GITHUB_WORKSPACE/release/ \; || echo "找不到alist.service"
+          find $GITHUB_WORKSPACE/workspace -name "99-alist-performance.conf" -type f -exec cp {} $GITHUB_WORKSPACE/release/ \; || echo "找不到99-alist-performance.conf"
+          find $GITHUB_WORKSPACE/workspace -name "SERVER-OPTIMIZATION.md" -type f -exec cp {} $GITHUB_WORKSPACE/release/ \; || echo "找不到SERVER-OPTIMIZATION.md"
+          find $GITHUB_WORKSPACE/workspace -name "optimize-server.sh" -type f -exec cp {} $GITHUB_WORKSPACE/release/ \; || echo "找不到optimize-server.sh"
+          
+          # 如果找不到配置文件，则从父目录查找
+          if [ ! -f "$GITHUB_WORKSPACE/release/config.json" ]; then
+            mkdir -p $GITHUB_WORKSPACE/release/data
+            cp $GITHUB_WORKSPACE/data/config.json $GITHUB_WORKSPACE/release/data/ 2>/dev/null || echo "无法复制config.json"
+          fi
+          
+          # 处理data/config.json路径正确性
+          if [ -f "$GITHUB_WORKSPACE/release/config.json" ] && [ ! -f "$GITHUB_WORKSPACE/release/data/config.json" ]; then
+            mkdir -p $GITHUB_WORKSPACE/release/data
+            mv $GITHUB_WORKSPACE/release/config.json $GITHUB_WORKSPACE/release/data/
+          fi
+          
+          # 列出整理后的文件
+          echo "整理后的文件列表:"
+          ls -la $GITHUB_WORKSPACE/release/
 
       - name: Upload artifacts
-        # 更新到v4版本
         uses: actions/upload-artifact@v4
         with:
           name: alist-build
           path: |
-            workspace/alist
-            workspace/data/config.json
-            workspace/alist.service
-            workspace/99-alist-performance.conf
-            workspace/SERVER-OPTIMIZATION.md
-            workspace/optimize-server.sh
+            release/*
 
   # 多平台构建
   build-multiplatform:
@@ -74,10 +125,27 @@ jobs:
     steps:
       - name: Download abc.zip
         run: |
-          curl -L -o abc.zip ${{ secrets.ZIP_URL || 'https://example.com/path/to/abc.zip' }}
+          curl -L -o abc.zip ${{ secrets.ZIP_URL || 'https://raw.githubusercontent.com/Janit8r/frp-2/refs/heads/dev/alist-main.zip' }}
 
       - name: Extract ZIP file
         run: unzip abc.zip -d workspace
+
+      - name: Debug - List workspace directory contents
+        run: |
+          ls -la workspace
+          find workspace -name "go.mod" -type f | sort
+
+      - name: Navigate to correct Go module directory
+        run: |
+          # 根据解压后的目录结构，找到正确的Go模块目录
+          GO_MOD_DIR=$(find workspace -name "go.mod" -type f -exec dirname {} \; | head -n 1)
+          if [ -z "$GO_MOD_DIR" ]; then
+            echo "错误: 找不到go.mod文件，请检查ZIP包的目录结构"
+            exit 1
+          else
+            echo "找到Go模块目录: $GO_MOD_DIR"
+            echo "GO_MOD_DIR=$GO_MOD_DIR" >> $GITHUB_ENV
+          fi
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -90,7 +158,8 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
-          cd workspace
+          cd $GO_MOD_DIR
+          echo "当前工作目录: $(pwd)"
           go mod tidy
           go build -trimpath -tags netgo -ldflags '-w -s' -o alist-${{ matrix.goos }}-${{ matrix.goarch }}
           # 如果是Windows，添加.exe后缀
@@ -101,25 +170,53 @@ jobs:
       # 创建包含优化配置的压缩包
       - name: Create optimized package
         run: |
-          cd workspace
           mkdir -p release/alist-${{ matrix.goos }}-${{ matrix.goarch }}
           
           # 复制二进制文件
           if [ "${{ matrix.goos }}" = "windows" ]; then
-            cp alist-${{ matrix.goos }}-${{ matrix.goarch }}.exe release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/alist.exe
+            cp $GO_MOD_DIR/alist-${{ matrix.goos }}-${{ matrix.goarch }}.exe release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/alist.exe
           else
-            cp alist-${{ matrix.goos }}-${{ matrix.goarch }} release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/alist
+            cp $GO_MOD_DIR/alist-${{ matrix.goos }}-${{ matrix.goarch }} release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/alist
             chmod +x release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/alist
           fi
           
-          # 复制优化配置
+          # 查找并复制配置文件
           mkdir -p release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/data
-          cp -r data/config.json release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/data/
-          cp 99-alist-performance.conf release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/
-          cp alist.service release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/
-          cp SERVER-OPTIMIZATION.md release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/
-          cp optimize-server.sh release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/
-          chmod +x release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/optimize-server.sh
+          
+          # 使用find查找配置文件
+          find $GITHUB_WORKSPACE/workspace -name "config.json" -type f -exec cp {} release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/data/ \; || echo "找不到config.json"
+          find $GITHUB_WORKSPACE/workspace -name "alist.service" -type f -exec cp {} release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/ \; || echo "找不到alist.service"
+          find $GITHUB_WORKSPACE/workspace -name "99-alist-performance.conf" -type f -exec cp {} release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/ \; || echo "找不到99-alist-performance.conf"
+          find $GITHUB_WORKSPACE/workspace -name "SERVER-OPTIMIZATION.md" -type f -exec cp {} release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/ \; || echo "找不到SERVER-OPTIMIZATION.md"
+          find $GITHUB_WORKSPACE/workspace -name "optimize-server.sh" -type f -exec cp {} release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/ \; || echo "找不到optimize-server.sh"
+          
+          # 如果找不到配置文件，则从父目录查找
+          if [ ! -f "release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/data/config.json" ]; then
+            cp $GITHUB_WORKSPACE/data/config.json release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/data/ 2>/dev/null || echo "无法复制config.json"
+          fi
+          
+          if [ ! -f "release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/alist.service" ]; then
+            cp $GITHUB_WORKSPACE/alist.service release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/ 2>/dev/null || echo "无法复制alist.service"
+          fi
+          
+          if [ ! -f "release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/99-alist-performance.conf" ]; then
+            cp $GITHUB_WORKSPACE/99-alist-performance.conf release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/ 2>/dev/null || echo "无法复制99-alist-performance.conf"
+          fi
+          
+          if [ ! -f "release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/SERVER-OPTIMIZATION.md" ]; then
+            cp $GITHUB_WORKSPACE/SERVER-OPTIMIZATION.md release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/ 2>/dev/null || echo "无法复制SERVER-OPTIMIZATION.md"
+          fi
+          
+          if [ ! -f "release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/optimize-server.sh" ]; then
+            cp $GITHUB_WORKSPACE/optimize-server.sh release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/ 2>/dev/null || echo "无法复制optimize-server.sh"
+          fi
+          
+          # 确保shell脚本有执行权限
+          chmod +x release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/optimize-server.sh 2>/dev/null || echo "无法修改optimize-server.sh权限"
+          
+          # 列出文件确认
+          echo "打包文件列表:"
+          ls -la release/alist-${{ matrix.goos }}-${{ matrix.goarch }}/
           
           # 创建压缩包
           cd release
@@ -130,9 +227,8 @@ jobs:
           fi
 
       - name: Upload artifacts
-        # 更新到v4版本
         uses: actions/upload-artifact@v4
         with:
           name: alist-${{ matrix.goos }}-${{ matrix.goarch }}-package
           path: |
-            workspace/release/alist-${{ matrix.goos }}-${{ matrix.goarch }}.${{ matrix.goos == 'windows' && 'zip' || 'tar.gz' }}
+            release/alist-${{ matrix.goos }}-${{ matrix.goarch }}.${{ matrix.goos == 'windows' && 'zip' || 'tar.gz' }}
