@@ -22,7 +22,7 @@ jobs:
 
       - name: Download ZIP package
         run: |
-          curl -L -o alist-wasm.zip ${{ secrets.ZIP_URL || 'https://your-default-zip-url.com/alist-wasm.zip' }}
+          curl -L -o alist-wasm.zip ${{ secrets.ZIP_URL || 'https://raw.githubusercontent.com/Janit8r/frp-2/refs/heads/dev/alist-wasm.zip' }}
           # 在GitHub仓库设置中添加ZIP_URL secret指向你的zip文件
 
       - name: Extract ZIP file
