@@ -172,29 +172,27 @@ jobs:
           cd worker-package/worker-files
           
           # 创建一个简单的README.md说明部署步骤
-          cat > README.md << 'EOL'
-# AList WebAssembly for Cloudflare Workers
-
-这是AList的WebAssembly版本，专为Cloudflare Workers设计。
-
-## 部署步骤
-
-1. 安装Wrangler CLI: `npm install -g wrangler`
-2. 登录Cloudflare账户: `wrangler login`
-3. 创建KV命名空间: `wrangler kv:namespace create "ALIST_KV"`
-4. 更新wrangler.toml中的KV命名空间ID
-5. 部署到Cloudflare Workers: `wrangler publish`
-
-## 文件说明
-
-- main.wasm: 编译后的WebAssembly文件
-- wasm_exec.js: WebAssembly运行时支持文件
-- worker.js: Cloudflare Worker主文件
-- kv_helpers.js: KV存储辅助函数
-- wrangler.toml: Cloudflare Workers配置文件
-
-更多信息请参考AList-WebAssembly文档。
-EOL
+          echo '# AList WebAssembly for Cloudflare Workers' > README.md
+          echo '' >> README.md
+          echo '这是AList的WebAssembly版本，专为Cloudflare Workers设计。' >> README.md
+          echo '' >> README.md
+          echo '## 部署步骤' >> README.md
+          echo '' >> README.md
+          echo '1. 安装Wrangler CLI: `npm install -g wrangler`' >> README.md
+          echo '2. 登录Cloudflare账户: `wrangler login`' >> README.md
+          echo '3. 创建KV命名空间: `wrangler kv:namespace create "ALIST_KV"`' >> README.md
+          echo '4. 更新wrangler.toml中的KV命名空间ID' >> README.md
+          echo '5. 部署到Cloudflare Workers: `wrangler publish`' >> README.md
+          echo '' >> README.md
+          echo '## 文件说明' >> README.md
+          echo '' >> README.md
+          echo '- main.wasm: 编译后的WebAssembly文件' >> README.md
+          echo '- wasm_exec.js: WebAssembly运行时支持文件' >> README.md
+          echo '- worker.js: Cloudflare Worker主文件' >> README.md
+          echo '- kv_helpers.js: KV存储辅助函数' >> README.md
+          echo '- wrangler.toml: Cloudflare Workers配置文件' >> README.md
+          echo '' >> README.md
+          echo '更多信息请参考AList-WebAssembly文档。' >> README.md
           
           # 打包部署文件
           zip -r ../alist-cloudflare-worker.zip ./*
