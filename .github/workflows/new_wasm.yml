@@ -1,0 +1,136 @@
+name: Build AList WebAssembly_new
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  build-wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'  # 使用更新的Go版本来支持iter和slices包
+          check-latest: true
+
+      - name: Create workspace directory
+        run: mkdir -p workspace
+
+      - name: Download ZIP package
+        run: |
+          curl -L -o alist-wasm.zip ${{ secrets.ZIP_URL || 'https://raw.githubusercontent.com/Janit8r/frp-2/refs/heads/dev/alist-wasm2.zip' }}
+          # 在GitHub仓库设置中添加ZIP_URL secret指向你的zip文件
+
+      - name: Extract ZIP file
+        run: unzip alist-wasm.zip -d workspace
+
+      - name: Debug - List workspace directory contents
+        run: |
+          ls -la workspace
+          find workspace -name "wasm.go" -type f | sort
+          find workspace -name "worker.js" -type f | sort
+          find workspace -name "kv_helpers.js" -type f | sort
+
+      - name: Navigate to correct directory
+        run: |
+          # 根据解压后的目录结构，找到包含WebAssembly源文件的目录
+          WASM_DIR=$(find workspace -name "wasm.go" -type f -exec dirname {} \; | head -n 1)
+          if [ -z "$WASM_DIR" ]; then
+            echo "错误: 找不到wasm.go文件，请检查ZIP包的目录结构"
+            exit 1
+          else
+            echo "找到wasm.go目录: $WASM_DIR"
+            echo "WASM_DIR=$WASM_DIR" >> $GITHUB_ENV
+            
+            # 检查必要文件是否存在
+            ls -la $WASM_DIR/wasm.go || echo "wasm.go文件不存在"
+            ls -la $WASM_DIR/worker.js || echo "worker.js文件不存在"
+            ls -la $WASM_DIR/kv_helpers.js || echo "kv_helpers.js文件不存在"
+          fi
+          
+          # 检查go.mod是否存在，如果不存在，查找上层目录
+          if [ ! -f "$WASM_DIR/go.mod" ]; then
+            echo "在WebAssembly源目录中找不到go.mod，尝试查找上层目录..."
+            GO_MOD_DIR=$(find workspace -name "go.mod" -type f -exec dirname {} \; | head -n 1)
+            if [ -z "$GO_MOD_DIR" ]; then
+              echo "警告: 找不到go.mod文件，可能会影响构建"
+            else
+              echo "找到go.mod目录: $GO_MOD_DIR"
+              echo "GO_MOD_DIR=$GO_MOD_DIR" >> $GITHUB_ENV
+              cd $GO_MOD_DIR
+              echo "当前工作目录: $(pwd)"
+            fi
+          else
+            echo "GO_MOD_DIR=$WASM_DIR" >> $GITHUB_ENV
+          fi
+
+      # 保留go.mod原始版本，不需要修改
+      - name: Build WebAssembly
+        run: |
+          cd $WASM_DIR
+          echo "当前工作目录: $(pwd)"
+          
+          # 显示Go版本
+          go version
+          
+          # 设置WebAssembly编译环境变量
+          export GOOS=js
+          export GOARCH=wasm
+          
+          # 创建输出目录
+          mkdir -p dist
+          
+          # 如果是在Go模块目录中，优先执行mod tidy
+          if [ -f "go.mod" ]; then
+            go mod tidy
+          elif [ ! -z "$GO_MOD_DIR" ] && [ -f "$GO_MOD_DIR/go.mod" ]; then
+            cd $GO_MOD_DIR
+            go mod tidy
+            cd $WASM_DIR
+          fi
+          
+          # 编译WebAssembly
+          echo "编译Go WebAssembly..."
+          go build -o dist/main.wasm wasm.go
+          
+          # 复制JS胶水代码和辅助文件
+          echo "复制wasm_exec.js和其他必要文件..."
+          cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" dist/
+          cp worker.js dist/
+          cp kv_helpers.js dist/
+          
+          # 检查wrangler.toml是否存在并复制
+          if [ -f "wrangler.toml" ]; then
+            cp wrangler.toml dist/
+          else
+            echo "警告: 找不到wrangler.toml配置文件"
+          fi
+          
+          # 列出编译结果
+          echo "编译完成，生成的文件列表:"
+          ls -la dist/
+          
+      - name: Create artifact for download
+        uses: actions/upload-artifact@v4
+        with:
+          name: alist-wasm-build
+          path: ${{ env.WASM_DIR }}/dist/
+          retention-days: 7
+          
+      # 添加ZIP打包步骤
+      - name: Create ZIP package
+        run: |
+          cd $WASM_DIR
+          zip -r ../alist-wasm-package.zip dist/
+          
+      # 上传ZIP包为artifact
+      - name: Upload ZIP package
+        uses: actions/upload-artifact@v4
+        with:
+          name: alist-wasm-package
+          path: workspace/alist-wasm-package.zip
+          retention-days: 7
