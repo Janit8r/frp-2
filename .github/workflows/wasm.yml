@@ -1,0 +1,81 @@
+name: Build Alist WebAssembly
+
+on:
+  workflow_dispatch:  # 允许手动触发
+  push:
+    branches: [ main ]  # 当推送到main分支时自动触发
+  pull_request:
+    branches: [ main ]  # 当对main分支发起PR时自动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # 使用Ubuntu运行器
+
+    steps:
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.20'  # 选择Go版本，至少需要1.17+
+
+    - name: Download ZIP file
+      run: |
+        # 从您的源位置下载zip文件
+        # 如果放在GitHub Releases中：
+        curl -L -o abc.zip https://raw.githubusercontent.com/Janit8r/frp-2/refs/heads/dev/alist-wasm.zip
+        # 或者如果放在其他位置，替换下面的URL
+        # curl -L -o abc.zip https://your-storage-url.com/abc.zip
+
+    - name: Extract ZIP
+      run: |
+        mkdir -p alist-wasm
+        unzip abc.zip -d alist-wasm
+        cd alist-wasm
+        ls -la  # 列出解压后的文件，用于调试
+
+    - name: Build WebAssembly
+      working-directory: alist-wasm
+      run: |
+        # 设置编译环境变量
+        export GOOS=js
+        export GOARCH=wasm
+        
+        # 创建输出目录
+        mkdir -p dist
+        
+        # 编译主WASM模块
+        echo "编译Go WebAssembly..."
+        go build -o dist/main.wasm wasm.go
+        
+        # 复制JS胶水代码
+        echo "复制wasm_exec.js..."
+        cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" dist/
+        
+        # 复制worker.js和KV辅助函数
+        echo "复制worker.js和kv_helpers.js..."
+        cp worker.js dist/
+        cp kv_helpers.js dist/
+        
+        # 列出生成的文件，用于调试
+        echo "编译完成，生成的文件："
+        ls -la dist/
+
+    - name: Upload WebAssembly Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: alist-wasm-build
+        path: alist-wasm/dist/
+        retention-days: 7
+
+    # 可选：如果您想将编译结果部署到Cloudflare Workers
+    - name: Deploy to Cloudflare Workers
+      if: github.ref == 'refs/heads/main'  # 仅在main分支上部署
+      working-directory: alist-wasm
+      run: |
+        # 安装wrangler CLI
+        npm install -g wrangler
+        
+        # 部署到Cloudflare Workers
+        # 需要设置Cloudflare API令牌作为GitHub Secrets
+        # wrangler publish
+      env:
+        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
