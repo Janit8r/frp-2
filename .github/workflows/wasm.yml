@@ -14,7 +14,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.20'  # 使用稳定版本
+          go-version: '1.23'  # 使用更新的Go版本来支持iter和slices包
           check-latest: true
 
       - name: Create workspace directory
@@ -68,35 +68,7 @@ jobs:
             echo "GO_MOD_DIR=$WASM_DIR" >> $GITHUB_ENV
           fi
 
-      # 修复go.mod版本（修改为1.20）
-      - name: Fix Go version in go.mod
-        run: |
-          if [ -f "$GO_MOD_DIR/go.mod" ]; then
-            echo "修改go.mod文件中的Go版本..."
-            cp $GO_MOD_DIR/go.mod $GO_MOD_DIR/go.mod.original
-      
-            # 首先查看原始内容
-            echo "原始go.mod内容:"
-            cat $GO_MOD_DIR/go.mod
-      
-            # 更精确的版本修改命令 - 确保格式为"go 1.XX"而不是"go 1.XX.X"
-            sed -i 's/go 1\.[0-9]\+\.[0-9]\+/go 1.20/g' $GO_MOD_DIR/go.mod
-      
-            # 再检查一次文件内容是否正确修改
-            echo "修改后的go.mod内容:"
-            cat $GO_MOD_DIR/go.mod
-      
-            # 确保格式正确 - 再次检查并确认没有补丁版本号
-            if grep -q "go 1\.[0-9]\+\.[0-9]\+" $GO_MOD_DIR/go.mod; then
-              echo "警告: 仍然存在补丁版本号，尝试更强力的替换"
-              # 使用awk替代sed进行更精确的替换
-              awk '{ if($1=="go" && $2 ~ /1\.[0-9]+\.[0-9]+/) {print "go 1.20"} else {print $0} }' $GO_MOD_DIR/go.mod > temp.mod
-              mv temp.mod $GO_MOD_DIR/go.mod
-              echo "最终go.mod内容:"
-              cat $GO_MOD_DIR/go.mod
-            fi
-          fi
-
+      # 保留go.mod原始版本，不需要修改
       - name: Build WebAssembly
         run: |
           cd $WASM_DIR
