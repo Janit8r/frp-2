@@ -73,25 +73,28 @@ jobs:
         run: |
           if [ -f "$GO_MOD_DIR/go.mod" ]; then
             echo "修改go.mod文件中的Go版本..."
+            cp $GO_MOD_DIR/go.mod $GO_MOD_DIR/go.mod.original
       
             # 首先查看原始内容
             echo "原始go.mod内容:"
             cat $GO_MOD_DIR/go.mod
       
-            # 读取第一行以确定模块名称
-            MODULE_NAME=$(head -n 1 $GO_MOD_DIR/go.mod)
+            # 更精确的版本修改命令 - 确保格式为"go 1.XX"而不是"go 1.XX.X"
+            sed -i 's/go 1\.[0-9]\+\.[0-9]\+/go 1.20/g' $GO_MOD_DIR/go.mod
       
-            # 创建临时文件
-            echo "$MODULE_NAME" > temp.mod
-            echo "go 1.20" >> temp.mod
-            # 从第3行开始复制剩余内容
-            tail -n +3 $GO_MOD_DIR/go.mod >> temp.mod
-      
-            # 替换原始文件
-            mv temp.mod $GO_MOD_DIR/go.mod
-      
+            # 再检查一次文件内容是否正确修改
             echo "修改后的go.mod内容:"
             cat $GO_MOD_DIR/go.mod
+      
+            # 确保格式正确 - 再次检查并确认没有补丁版本号
+            if grep -q "go 1\.[0-9]\+\.[0-9]\+" $GO_MOD_DIR/go.mod; then
+              echo "警告: 仍然存在补丁版本号，尝试更强力的替换"
+              # 使用awk替代sed进行更精确的替换
+              awk '{ if($1=="go" && $2 ~ /1\.[0-9]+\.[0-9]+/) {print "go 1.20"} else {print $0} }' $GO_MOD_DIR/go.mod > temp.mod
+              mv temp.mod $GO_MOD_DIR/go.mod
+              echo "最终go.mod内容:"
+              cat $GO_MOD_DIR/go.mod
+            fi
           fi
 
       - name: Build WebAssembly
