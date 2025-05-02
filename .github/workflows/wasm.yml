@@ -115,7 +115,7 @@ jobs:
           ls -la dist/
           
       - name: Create artifact for download
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: alist-wasm-build
           path: ${{ env.WASM_DIR }}/dist/
@@ -129,7 +129,7 @@ jobs:
           
       # 上传ZIP包为artifact
       - name: Upload ZIP package
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: alist-wasm-package
           path: workspace/alist-wasm-package.zip
