@@ -112,4 +112,25 @@ jobs:
           
           # 列出编译结果
           echo "编译完成，生成的文件列表:"
-          ls -la dist/ 
+          ls -la dist/
+          
+      - name: Create artifact for download
+        uses: actions/upload-artifact@v3
+        with:
+          name: alist-wasm-build
+          path: ${{ env.WASM_DIR }}/dist/
+          retention-days: 7
+          
+      # 添加ZIP打包步骤
+      - name: Create ZIP package
+        run: |
+          cd $WASM_DIR
+          zip -r ../alist-wasm-package.zip dist/
+          
+      # 上传ZIP包为artifact
+      - name: Upload ZIP package
+        uses: actions/upload-artifact@v3
+        with:
+          name: alist-wasm-package
+          path: workspace/alist-wasm-package.zip
+          retention-days: 7
