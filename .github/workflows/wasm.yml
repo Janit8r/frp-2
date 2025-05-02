@@ -112,4 +112,4 @@ jobs:
           
           # 列出编译结果
           echo "编译完成，生成的文件列表:"
-          ls -la dist/
+          ls -la dist/ 
