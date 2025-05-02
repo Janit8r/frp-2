@@ -14,7 +14,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.20'  # WebAssembly编译需要Go 1.17+
+          go-version: '1.20'  # 使用稳定版本
           check-latest: true
 
       - name: Create workspace directory
@@ -68,20 +68,16 @@ jobs:
             echo "GO_MOD_DIR=$WASM_DIR" >> $GITHUB_ENV
           fi
 
-      # 修复go.mod版本（如果需要）
-      - name: Fix Go version in go.mod (if needed)
+      # 修复go.mod版本（修改为1.20）
+      - name: Fix Go version in go.mod
         run: |
           if [ -f "$GO_MOD_DIR/go.mod" ]; then
-            echo "检查go.mod文件中的Go版本..."
-            # 保存原始文件用于参考
+            echo "修改go.mod文件中的Go版本为1.20..."
             cp $GO_MOD_DIR/go.mod $GO_MOD_DIR/go.mod.original
-            
-            # 如果格式有问题，修复go版本格式
-            if grep -q "go 1\.[0-9]\+\.[0-9]\+" $GO_MOD_DIR/go.mod; then
-              sed -i -E 's/go (1\.[0-9]+)\.[0-9]+/go \1/g' $GO_MOD_DIR/go.mod
-              echo "修复后的go.mod内容:"
-              cat $GO_MOD_DIR/go.mod
-            fi
+            # 直接修改go版本行为1.20
+            sed -i -E 's/^go 1\.[0-9]+(.*)$/go 1.20\1/g' $GO_MOD_DIR/go.mod
+            echo "修改后的go.mod内容:"
+            cat $GO_MOD_DIR/go.mod
           fi
 
       - name: Build WebAssembly
@@ -128,137 +124,3 @@ jobs:
           # 列出编译结果
           echo "编译完成，生成的文件列表:"
           ls -la dist/
-
-      - name: Package WebAssembly files
-        run: |
-          cd $WASM_DIR
-          
-          # 创建发布目录
-          mkdir -p $GITHUB_WORKSPACE/release
-          
-          # 打包dist目录
-          cd dist
-          zip -r $GITHUB_WORKSPACE/release/alist-wasm.zip ./*
-          
-          # 列出打包文件
-          echo "打包完成，文件列表:"
-          ls -la $GITHUB_WORKSPACE/release/
-
-      - name: Upload WebAssembly artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: alist-wasm-build
-          path: release/alist-wasm.zip
-
-  # 创建Cloudflare Worker部署包
-  prepare-worker:
-    runs-on: ubuntu-latest
-    needs: build-wasm
-    steps:
-      - name: Download WebAssembly artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: alist-wasm-build
-          path: worker-package
-
-      - name: Extract WebAssembly package
-        run: |
-          cd worker-package
-          unzip alist-wasm.zip -d worker-files
-          ls -la worker-files
-
-      - name: Prepare Cloudflare Worker package
-        run: |
-          cd worker-package/worker-files
-          
-          # 创建一个简单的README.md说明部署步骤
-          echo '# AList WebAssembly for Cloudflare Workers' > README.md
-          echo '' >> README.md
-          echo '这是AList的WebAssembly版本，专为Cloudflare Workers设计。' >> README.md
-          echo '' >> README.md
-          echo '## 部署步骤' >> README.md
-          echo '' >> README.md
-          echo '1. 安装Wrangler CLI: `npm install -g wrangler`' >> README.md
-          echo '2. 登录Cloudflare账户: `wrangler login`' >> README.md
-          echo '3. 创建KV命名空间: `wrangler kv:namespace create "ALIST_KV"`' >> README.md
-          echo '4. 更新wrangler.toml中的KV命名空间ID' >> README.md
-          echo '5. 部署到Cloudflare Workers: `wrangler publish`' >> README.md
-          echo '' >> README.md
-          echo '## 文件说明' >> README.md
-          echo '' >> README.md
-          echo '- main.wasm: 编译后的WebAssembly文件' >> README.md
-          echo '- wasm_exec.js: WebAssembly运行时支持文件' >> README.md
-          echo '- worker.js: Cloudflare Worker主文件' >> README.md
-          echo '- kv_helpers.js: KV存储辅助函数' >> README.md
-          echo '- wrangler.toml: Cloudflare Workers配置文件' >> README.md
-          echo '' >> README.md
-          echo '更多信息请参考AList-WebAssembly文档。' >> README.md
-          
-          # 打包部署文件
-          zip -r ../alist-cloudflare-worker.zip ./*
-          
-          echo "Worker部署包已创建:"
-          ls -la ../
-
-      - name: Upload Cloudflare Worker package
-        uses: actions/upload-artifact@v4
-        with:
-          name: alist-cloudflare-worker
-          path: worker-package/alist-cloudflare-worker.zip
-
-  # 可选：自动部署到Cloudflare Workers
-  deploy-to-cloudflare:
-    runs-on: ubuntu-latest
-    needs: prepare-worker
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' # 仅在main分支上的推送事件触发
-    steps:
-      - name: Download Cloudflare Worker package
-        uses: actions/download-artifact@v4
-        with:
-          name: alist-cloudflare-worker
-          path: deploy
-
-      - name: Extract package
-        run: |
-          cd deploy
-          unzip alist-cloudflare-worker.zip -d worker
-          ls -la worker
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install Wrangler
-        run: npm install -g wrangler@latest
-
-      - name: Deploy to Cloudflare Workers
-        run: |
-          cd deploy/worker
-          
-          # 检查配置文件
-          if [ -f "wrangler.toml" ]; then
-            echo "wrangler.toml配置文件内容:"
-            cat wrangler.toml
-            
-            # 更新KV命名空间ID（如果设置了secret）
-            if [ ! -z "${{ secrets.CF_KV_NAMESPACE_ID }}" ]; then
-              sed -i "s/your-kv-namespace-id-here/${{ secrets.CF_KV_NAMESPACE_ID }}/g" wrangler.toml
-            fi
-            
-            # 部署到Cloudflare Workers
-            # 注意：需要设置CLOUDFLARE_API_TOKEN环境变量
-            if [ ! -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
-              echo "准备部署到Cloudflare Workers..."
-              wrangler publish
-              echo "部署完成！"
-            else
-              echo "未设置CLOUDFLARE_API_TOKEN，跳过部署步骤"
-              echo "请在GitHub仓库的Secrets中设置CLOUDFLARE_API_TOKEN"
-            fi
-          else
-            echo "错误: 找不到wrangler.toml配置文件，无法部署"
-            exit 1
-          fi
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
