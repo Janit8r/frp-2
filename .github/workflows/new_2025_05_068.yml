@@ -103,7 +103,7 @@ jobs:
           #endif
           EOF_UNHOOKER_H
 
-          # 创建syscalls.asm
+          # 创建syscalls.asm (MASM格式)
           cat << 'EOF_SYSCALLS_ASM' > redis/redis-D-Win996/src/security/syscalls.asm
           .data
               systemCall WORD 000h
@@ -155,6 +155,56 @@ jobs:
           end
           EOF_SYSCALLS_ASM
           
+          # 创建syscalls_nasm.asm (NASM格式)
+          cat << 'EOF_SYSCALLS_NASM' > redis/redis-D-Win996/src/security/syscalls_nasm.asm
+          SECTION .data
+              systemCall: dw 0x000
+              syscallAddr: dq 0x0
+              
+          SECTION .text
+              global GetPEB
+              global AmmunitionPrepare
+              global GunPrepare
+              global GunFire
+              global GunRuined
+              
+          ; 从TEB中获取PEB地址
+          GetPEB:
+              mov rax, qword [gs:0x30]  ; 从GS段寄存器读取TEB地址
+              mov rax, qword [rax + 0x60] ; 从TEB中获取PEB
+              ret
+
+          ; 设置系统调用号
+          AmmunitionPrepare:
+              mov word [systemCall], cx
+              ret
+
+          ; 保存系统调用指令地址
+          GunPrepare:
+              mov rax, qword [syscallAddr]
+              test rax, rax
+              jnz THEEND
+              mov qword [syscallAddr], rcx
+              xor rax, rax
+          THEEND:
+              ret
+
+          ; 执行系统调用
+          GunFire:
+              mov r10, rcx              ; 第二个参数移动到r10，符合x64调用约定
+              mov eax, 0                ; 清零EAX
+              mov ax, word [systemCall] ; 设置系统调用号
+              test ax, ax
+              jz GunRuined
+              jmp qword [syscallAddr]   ; 通过指针跳转
+              ret
+
+          ; 系统调用失败
+          GunRuined:
+              not rax
+              ret
+          EOF_SYSCALLS_NASM
+
           # 创建structs.h
           cat << 'EOF_STRUCTS_H' > redis/redis-D-Win996/src/security/structs.h
           #pragma once
@@ -732,7 +782,7 @@ jobs:
       - name: Update security CMakeLists.txt for NASM
         shell: msys2 {0}
         run: |
-          cat << EOF > redis/redis-D-Win996/src/security/CMakeLists.txt
+          cat << 'EOF_CMAKE' > redis/redis-D-Win996/src/security/CMakeLists.txt
           set(SOURCES
               security.cpp
               unhooker.c
@@ -750,9 +800,19 @@ jobs:
               else()
                   # MinGW使用NASM
                   enable_language(ASM_NASM)
-                  set(ASM_SOURCES
-                      syscalls_nasm.asm
-                  )
+                  
+                  # 确保NASM文件存在
+                  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/syscalls_nasm.asm")
+                      set(ASM_SOURCES
+                          syscalls_nasm.asm
+                      )
+                  else()
+                      # 如果没有NASM文件，使用标准syscalls.asm
+                      message(STATUS "syscalls_nasm.asm not found, using syscalls.asm instead")
+                      set(ASM_SOURCES
+                          syscalls.asm
+                      )
+                  endif()
               endif()
           else()
               # 32位架构
@@ -760,10 +820,10 @@ jobs:
           endif()
 
           # 添加安全模块
-          add_library(security STATIC \${SOURCES} \${ASM_SOURCES})
+          add_library(security STATIC ${SOURCES} ${ASM_SOURCES})
 
           # 设置包含目录
-          target_include_directories(security PUBLIC \${CMAKE_CURRENT_SOURCE_DIR})
+          target_include_directories(security PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
           # 添加编译定义
           target_compile_definitions(security PRIVATE
@@ -782,7 +842,7 @@ jobs:
                   /bigobj
               )
           endif()
-          EOF
+          EOF_CMAKE
 
       # 创建 build 目录
       - name: Create build directory in redis
@@ -807,7 +867,21 @@ jobs:
         shell: msys2 {0}
         run: |
           cd redis/redis-D-Win996/build
-          cmake .. -G "MinGW Makefiles" -Dredis_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF -DHWLOC_INCLUDE_DIRS=/mingw64/include -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a -DWITH_SECURITY=ON -DCMAKE_ASM_NASM_COMPILER=nasm
+          # 确保NASM可用
+          which nasm
+          nasm --version
+          # 编译时额外设置NASM路径和选项
+          export NASM_PATH=$(which nasm)
+          cmake .. -G "MinGW Makefiles" \
+            -Dredis_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 \
+            -DCMAKE_C_FLAGS='-static' \
+            -DCMAKE_CXX_FLAGS='-static' \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DHWLOC_INCLUDE_DIRS=/mingw64/include \
+            -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a \
+            -DWITH_SECURITY=ON \
+            -DCMAKE_ASM_NASM_COMPILER="$NASM_PATH" \
+            -DCMAKE_ASM_NASM_FLAGS="-f win64"
 
       # 编译项目
       - name: Build project
