@@ -80,7 +80,7 @@ jobs:
 
       # 上传构建产物
       - name: Archive build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # 这里已修复版本号
         with:
           name: build-artifacts
           path: redis/redis-D-Win996/build
