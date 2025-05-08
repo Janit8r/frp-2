@@ -1,4 +1,4 @@
-name: Build on Do win64 noupx
+name: Build on Do new re
 
 on:
   push:
