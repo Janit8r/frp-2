@@ -639,7 +639,7 @@ jobs:
         run: |
           cd redis/redis-D-Win996/build
           # 添加详细的编译输出，便于诊断
-          mingw32-make VERBOSE=1
+          mingw32-make VERBOSE=1 CFLAGS="-fpermissive -Wno-write-strings -Wno-deprecated -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-incompatible-pointer-types -Wno-unknown-pragmas -Wno-format -Wno-narrowing -Wno-format-security -Wno-unused-variable -Wno-unused-value -Wno-variadic-macros" CXXFLAGS="-fpermissive -Wno-write-strings -Wno-deprecated -Wno-unused-variable -Wno-unused-value -Wno-variadic-macros"
 
       # 上传构建产物
       - name: Archive build artifacts
@@ -655,5 +655,9 @@ jobs:
           cd redis/redis-D-Win996
           mkdir -p build
           cd build
-          cmake .. -G "MinGW Makefiles" -DCMAKE_CXX_FLAGS="-fpermissive -Wno-write-strings -Wno-deprecated" -DCMAKE_C_FLAGS="-Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-incompatible-pointer-types"
+          cmake .. -G "MinGW Makefiles" \
+            -DCMAKE_CXX_FLAGS="-fpermissive -Wno-write-strings -Wno-deprecated -Wno-unused-variable -Wno-unused-value -Wno-variadic-macros" \
+            -DCMAKE_C_FLAGS="-Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-incompatible-pointer-types -Wno-unknown-pragmas -Wno-format -Wno-narrowing -Wno-format-security -Wno-unused-variable -Wno-unused-value" \
+            -DWITH_SECURITY=ON \
+            -DWITH_C_SECURITY=ON
           mingw32-make -j4
