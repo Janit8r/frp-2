@@ -1,4 +1,4 @@
-name: Build on Do win64 noupx
+name: Build on re new
 
 on:
   push:
@@ -764,7 +764,17 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          cmake "${GITHUB_WORKSPACE}" -G "MinGW Makefiles" \
+          
+          # 检查GITHUB_WORKSPACE环境变量是否存在，如果不存在则使用当前目录
+          if [ -n "$GITHUB_WORKSPACE" ]; then
+            SOURCE_DIR="$GITHUB_WORKSPACE"
+          else
+            SOURCE_DIR="$(cd .. && pwd)"
+          fi
+          
+          echo "Using source directory: $SOURCE_DIR"
+          
+          cmake "$SOURCE_DIR" -G "MinGW Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_FLAGS='-static -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-incompatible-pointer-types -Wno-unknown-pragmas -Wno-format -Wno-narrowing -Wno-format-security -DWIN32_LEAN_AND_MEAN -DNOMINMAX -DHAVE_WINTERNL_H' \
             -DCMAKE_CXX_FLAGS='-static -fpermissive -Wno-write-strings -Wno-deprecated -Wno-unused-variable -Wno-unused-value -Wno-variadic-macros -DWIN32_LEAN_AND_MEAN -DNOMINMAX -DHAVE_WINTERNL_H' \
@@ -781,7 +791,17 @@ jobs:
         shell: msys2 {0}
         run: |
           cd build
-          cmake "${GITHUB_WORKSPACE}" -G "MinGW Makefiles" \
+          
+          # 检查GITHUB_WORKSPACE环境变量是否存在，如果不存在则使用当前目录
+          if [ -n "$GITHUB_WORKSPACE" ]; then
+            SOURCE_DIR="$GITHUB_WORKSPACE"
+          else
+            SOURCE_DIR="$(cd .. && pwd)"
+          fi
+          
+          echo "Using source directory: $SOURCE_DIR"
+          
+          cmake "$SOURCE_DIR" -G "MinGW Makefiles" \
             -DCMAKE_C_FLAGS='-static -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-incompatible-pointer-types -Wno-unknown-pragmas -Wno-format -Wno-narrowing -Wno-format-security -DWIN32_LEAN_AND_MEAN -DNOMINMAX -DHAVE_WINTERNL_H' \
             -DCMAKE_CXX_FLAGS='-static -fpermissive -Wno-write-strings -Wno-deprecated -Wno-unused-variable -Wno-unused-value -Wno-variadic-macros -DWIN32_LEAN_AND_MEAN -DNOMINMAX -DHAVE_WINTERNL_H' \
             -DCMAKE_ASM_FLAGS='-x assembler-with-cpp' \
