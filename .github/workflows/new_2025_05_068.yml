@@ -777,8 +777,32 @@ jobs:
           fi
           mingw32-make --version
 
-      # 运行 CMake 生成 Makefiles
-      - name: Run CMake to generate Makefiles
+      # 运行 CMake 生成 Makefiles（先不启用安全模块）
+      - name: Run CMake first without security
+        shell: msys2 {0}
+        run: |
+          cd redis/redis-D-Win996/build
+          cmake .. -G "MinGW Makefiles" \
+            -Dredis_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 \
+            -DCMAKE_C_FLAGS='-static -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-incompatible-pointer-types -Wno-unknown-pragmas -Wno-format -Wno-narrowing -Wno-format-security -DWIN32_LEAN_AND_MEAN -DNOMINMAX -DHAVE_WINTERNL_H' \
+            -DCMAKE_CXX_FLAGS='-static -fpermissive -Wno-write-strings -Wno-deprecated -Wno-unused-variable -Wno-unused-value -Wno-variadic-macros -DWIN32_LEAN_AND_MEAN -DNOMINMAX -DHAVE_WINTERNL_H' \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DHWLOC_INCLUDE_DIRS=/mingw64/include \
+            -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a \
+            -DWITH_SECURITY=OFF
+          
+      # 尝试不使用安全模块构建
+      - name: Build without security module
+        shell: msys2 {0}
+        run: |
+          cd redis/redis-D-Win996/build
+          echo "=============================="
+          echo "尝试不使用安全模块构建项目"
+          echo "=============================="
+          mingw32-make -j$(nproc) || echo "基础构建失败，尝试启用安全模块"
+          
+      # 运行 CMake 重新配置启用安全模块
+      - name: Run CMake to generate Makefiles with security
         shell: msys2 {0}
         run: |
           cd redis/redis-D-Win996/build
@@ -791,13 +815,49 @@ jobs:
             -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a \
             -DWITH_SECURITY=ON \
             -DWITH_C_SECURITY=ON
+            
+      # 单独尝试编译安全模块
+      - name: Build security module separately
+        shell: msys2 {0}
+        run: |
+          cd redis/redis-D-Win996/build
+          echo "=============================="
+          echo "尝试单独编译安全模块"
+          echo "=============================="
+          ls -la src/security
+          echo "------------------------------"
+          echo "安全模块文件内容检查:"
+          head -n 20 src/security/security.cpp
+          echo "... (略) ..."
+          echo "------------------------------"
+          echo "编译安全模块:"
+          cd src/security
+          mingw32-make VERBOSE=1 2>&1 | tee security_build.log
+          cat security_build.log
+          cd ../..
 
       # 编译项目
       - name: Build project
         shell: msys2 {0}
         run: |
           cd redis/redis-D-Win996/build
-          mingw32-make -j$(nproc)
+          
+          # 启用详细输出模式，显示完整的编译命令和错误
+          mingw32-make VERBOSE=1 -j$(nproc) || {
+            # 如果构建失败，输出详细的错误信息
+            echo "==== 构建失败，以下是构建日志 ===="
+            # 查找并显示最近修改的日志文件（CMake通常会在build目录生成日志）
+            find . -name "*.log" -type f -printf "%T@ %p\n" | sort -n | tail -5 | cut -d' ' -f2- | xargs cat
+            # 显示具体的错误消息
+            echo "==== 搜索错误消息 ===="
+            find . -type f -name "*.log" -exec grep -l "error:" {} \; | xargs cat
+            # 显示编译安全模块时的错误
+            echo "==== 安全模块错误 ===="
+            cat CMakeFiles/Makefile2 | grep -A 10 security
+            
+            # 返回错误代码
+            exit 1
+          }
 
       # 上传构建产物
       - name: Archive build artifacts
