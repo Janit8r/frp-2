@@ -32,13 +32,12 @@ jobs:
       # 创建build目录
       - name: Create build directory
         shell: msys2 {0}
-        run: mkdir -p redis-D-Win996/build
+        run: mkdir -p build
 
       # 配置和构建项目
       - name: Configure and build project
         shell: msys2 {0}
         run: |
-          cd redis-D-Win996
           cd build
           cmake .. -G "MSYS Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
@@ -53,8 +52,8 @@ jobs:
         shell: msys2 {0}
         run: |
           mkdir -p artifacts
-          cp redis-D-Win996/build/*.exe artifacts/ || echo "No exe files found"
-          cp redis-D-Win996/build/*.dll artifacts/ || echo "No DLL files found"
+          cp build/*.exe artifacts/ || echo "No exe files found"
+          cp build/*.dll artifacts/ || echo "No DLL files found"
 
       # 上传构建产物
       - name: Upload artifacts
