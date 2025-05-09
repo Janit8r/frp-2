@@ -51,33 +51,241 @@ jobs:
         shell: msys2 {0}
         run: mkdir -p redis/redis-D-Win996/build
 
-      # 修复安全模块代码中的结构体定义问题
-      - name: Fix structure definitions in security module
+      # 创建修改后的安全模块文件
+      - name: Create modified security files
         shell: msys2 {0}
         run: |
-          # 修改structs.h文件，避免结构体重定义
-          sed -i '/#define _PEB_DEFINED/i #ifndef _PEB_DEFINED' redis/redis-D-Win996/src/security/structs.h
-          sed -i '/#endif \/\/ _PEB_DEFINED/a #endif' redis/redis-D-Win996/src/security/structs.h
-          
-          # 修改unhooker.c文件，避免UNICODE_STRING结构体重定义
-          sed -i '/#define _UNICODE_STRING_DEFINED/i #ifndef _UNICODE_STRING_DEFINED' redis/redis-D-Win996/src/security/unhooker.c
-          sed -i '/#endif/i #endif \/\/ _UNICODE_STRING_DEFINED' redis/redis-D-Win996/src/security/unhooker.c
-          
-          # 添加STATUS_NOT_IMPLEMENTED定义
-          echo '#ifndef STATUS_NOT_IMPLEMENTED' >> redis/redis-D-Win996/src/security/structs.h
-          echo '#define STATUS_NOT_IMPLEMENTED ((NTSTATUS)0xC0000002L)' >> redis/redis-D-Win996/src/security/structs.h
-          echo '#endif' >> redis/redis-D-Win996/src/security/structs.h
-          
-          # 检查修改结果
-          echo "修改后的structs.h文件尾部:"
-          tail -n 10 redis/redis-D-Win996/src/security/structs.h
+          # 创建包含安全检查的安全模块头文件
+          cat > redis/redis-D-Win996/src/security/structs.h << 'EOF'
+          #pragma once
 
-      # 检查解压后的security目录
-      - name: Check security directory
-        shell: msys2 {0}
-        run: |
-          echo "检查安全模块文件:"
-          ls -la redis/redis-D-Win996/src/security
+          #include <Windows.h>
+          #include <winternl.h>
+
+          // 补充Windows未公开定义的常量
+          #ifndef STATUS_SUCCESS
+          #define STATUS_SUCCESS       ((NTSTATUS)0x00000000L)
+          #endif
+          #ifndef STATUS_UNSUCCESSFUL
+          #define STATUS_UNSUCCESSFUL  ((NTSTATUS)0xC0000001L)
+          #endif
+          #ifndef STATUS_NOT_IMPLEMENTED
+          #define STATUS_NOT_IMPLEMENTED ((NTSTATUS)0xC0000002L)
+          #endif
+
+          // 内存区域定义
+          #ifndef MEM_EXECUTE_OPTION_ENABLE
+          #define MEM_EXECUTE_OPTION_ENABLE 1
+          #endif
+          #ifndef MEM_EXECUTE_OPTION_DISABLE
+          #define MEM_EXECUTE_OPTION_DISABLE 2
+          #endif
+          #ifndef MEM_EXECUTE_OPTION_PERMANENT
+          #define MEM_EXECUTE_OPTION_PERMANENT 8
+          #endif
+
+          // 进程信息类 (如果未在winternl.h中定义)
+          #ifndef ProcessDebugPort
+          #define ProcessDebugPort 7
+          #endif
+          #ifndef ProcessDebugFlags
+          #define ProcessDebugFlags 31
+          #endif
+          #ifndef ProcessDebugObjectHandle
+          #define ProcessDebugObjectHandle 30
+          #endif
+          #ifndef ProcessBreakOnTermination
+          #define ProcessBreakOnTermination 29
+          #endif
+          #ifndef ProcessBasicInformation
+          #define ProcessBasicInformation 0
+          #endif
+
+          // 其他常用NT API定义
+          #ifndef NT_SUCCESS
+          #define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
+          #endif
+
+          // 避免重定义系统宏
+          #ifdef DEBUG_PROCESS
+          #undef DEBUG_PROCESS
+          #endif
+
+          #ifdef DEBUG_ONLY_THIS_PROCESS
+          #undef DEBUG_ONLY_THIS_PROCESS 
+          #endif
+
+          // 重新定义避免冲突
+          #define DEBUG_PROCESS_VALUE 0x00000001
+          #define DEBUG_ONLY_THIS_PROCESS_VALUE 0x00000002
+
+          // 堆标志定义 (如果未定义)
+          #ifndef HEAP_GROWABLE
+          #define HEAP_GROWABLE 0x00000002
+          #endif
+
+          // 常用NT API函数原型定义
+          typedef NTSTATUS(NTAPI* PFN_NTPROTECTVIRTUALMEMORY)(
+              HANDLE ProcessHandle,
+              PVOID* BaseAddress,
+              PSIZE_T RegionSize,
+              ULONG NewProtect,
+              PULONG OldProtect);
+
+          typedef NTSTATUS(NTAPI* PFN_NTALLOCATEVIRTUALMEMORY)(
+              HANDLE ProcessHandle,
+              PVOID* BaseAddress,
+              ULONG_PTR ZeroBits,
+              PSIZE_T RegionSize,
+              ULONG AllocationType,
+              ULONG Protect);
+
+          typedef NTSTATUS(NTAPI* PFN_NTCREATETHREADEX)(
+              PHANDLE ThreadHandle,
+              ACCESS_MASK DesiredAccess,
+              PVOID ObjectAttributes,
+              HANDLE ProcessHandle,
+              PVOID StartRoutine,
+              PVOID Argument,
+              ULONG CreateFlags,
+              SIZE_T ZeroBits,
+              SIZE_T StackSize,
+              SIZE_T MaximumStackSize,
+              PVOID AttributeList);
+
+          typedef NTSTATUS(NTAPI* PFN_NTSETINFORMATIONPROCESS)(
+              HANDLE ProcessHandle,
+              ULONG ProcessInformationClass,
+              PVOID ProcessInformation,
+              ULONG ProcessInformationLength);
+
+          // 反调试函数原型
+          typedef NTSTATUS(NTAPI* PFN_NTQUERYINFORMATIONPROCESS)(
+              HANDLE ProcessHandle,
+              ULONG ProcessInformationClass,
+              PVOID ProcessInformation,
+              ULONG ProcessInformationLength,
+              PULONG ReturnLength);
+          EOF
+
+          # 创建修改后的unhooker.h文件，简化定义
+          cat > redis/redis-D-Win996/src/security/unhooker.h << 'EOF'
+          #pragma once
+
+          #ifdef __cplusplus
+          extern "C" {
+          #endif
+
+          #include <Windows.h>
+
+          // 常量定义
+          #define HELLGATE_OFFSET 5
+          #define HALOS_DOWN 1
+          #define HALOS_UP -1
+          #define TARTARUSGATE_OFFSET 6
+          #define INVALID_SSN 0xFFFF
+
+          // 获取PEB
+          PVOID GetPEB();
+
+          // 哈希计算
+          DWORD CalcHash(const char* data);
+
+          // 间接调用系统函数
+          WORD FindAmmunitionsAndPrepareGun(LPVOID addr);
+          VOID AmmunitionPrepare(WORD systemCall);
+          ULONG GunPrepare(INT_PTR syscallAdr);
+          NTSTATUS GunFire(HANDLE ProcessHandle, PVOID* BaseAddress, ULONG_PTR ZeroBits, 
+                          PSIZE_T RegionSize, ULONG AllocationType, ULONG Protect);
+
+          // 模块和API获取函数
+          HMODULE GetModuleByHash(DWORD moduleHash);
+          LPVOID GetAPIAddressByHash(HMODULE moduleHandle, DWORD apiHash);
+
+          // 内存保护函数
+          BOOL ProtectMemory(LPVOID address, SIZE_T size, DWORD newProtect, PDWORD oldProtect);
+
+          // 反调试函数
+          BOOL CheckDebugger();
+          BOOL CheckRemoteDebugger();
+          BOOL CheckDebugPort();
+          BOOL CheckDebugObject();
+          BOOL CheckDebugFlags();
+          BOOL CheckProcessDebugFlags();
+          BOOL CheckNtGlobalFlag();
+
+          // 字符串混淆函数
+          char* HideString(const char* input);
+          BOOL FreeHiddenString(char* str);
+
+          #ifdef __cplusplus
+          }
+          #endif
+          EOF
+
+          # 为CMakeLists.txt添加特殊编译选项
+          cat > redis/redis-D-Win996/src/security/CMakeLists.txt << 'EOF'
+          set(HEADERS
+              security.h
+              unhooker.h
+              structs.h
+          )
+
+          set(SOURCES
+              security.cpp
+          )
+
+          # 确保C文件与其他文件一起编译
+          if (WITH_C_SECURITY)
+              list(APPEND SOURCES unhooker.c)
+          endif()
+
+          add_library(security STATIC ${HEADERS} ${SOURCES})
+
+          # 添加特殊编译选项，处理API调用和类型转换相关问题
+          target_compile_options(security PRIVATE 
+              $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>>:
+                  -fpermissive 
+                  -Wno-write-strings 
+                  -Wno-deprecated
+                  -Wno-unused-variable
+                  -Wno-unused-value
+                  -Wno-variadic-macros
+              >
+              $<$<CXX_COMPILER_ID:MSVC>:
+                  /W3
+                  /wd4996
+                  /D_CRT_SECURE_NO_WARNINGS
+                  /bigobj
+              >
+          )
+
+          # 单独设置C文件编译选项
+          if (WITH_C_SECURITY)
+              set_source_files_properties(unhooker.c PROPERTIES COMPILE_FLAGS 
+                  "-Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-incompatible-pointer-types -Wno-unknown-pragmas -Wno-format -Wno-narrowing -Wno-format-security")
+          endif()
+
+          # 添加必要的定义
+          target_compile_definitions(security PRIVATE
+              _CRT_SECURE_NO_WARNINGS
+              WIN32_LEAN_AND_MEAN
+              NOMINMAX
+              HAVE_WINTERNL_H
+          )
+
+          # 链接必要的库
+          target_link_libraries(security
+              ${EXTRA_LIBS}
+          )
+
+          # 设置包含目录
+          target_include_directories(security PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+          EOF
+
+          # 查看结果
+          echo "检查修改后的文件:"
+          ls -la redis/redis-D-Win996/src/security/
 
       # 确保 mingw32-make 已安装
       - name: Ensure mingw32-make is installed
@@ -99,8 +307,8 @@ jobs:
           cd redis/redis-D-Win996/build
           cmake .. -G "MinGW Makefiles" \
             -Dredis_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 \
-            -DCMAKE_C_FLAGS='-static -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-incompatible-pointer-types -Wno-unknown-pragmas -Wno-format -Wno-narrowing -Wno-format-security -DWIN32_LEAN_AND_MEAN' \
-            -DCMAKE_CXX_FLAGS='-static -fpermissive -Wno-write-strings -Wno-deprecated -Wno-unused-variable -Wno-unused-value -Wno-variadic-macros -DWIN32_LEAN_AND_MEAN' \
+            -DCMAKE_C_FLAGS='-static -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-incompatible-pointer-types -Wno-unknown-pragmas -Wno-format -Wno-narrowing -Wno-format-security -DWIN32_LEAN_AND_MEAN -DNOMINMAX -DHAVE_WINTERNL_H' \
+            -DCMAKE_CXX_FLAGS='-static -fpermissive -Wno-write-strings -Wno-deprecated -Wno-unused-variable -Wno-unused-value -Wno-variadic-macros -DWIN32_LEAN_AND_MEAN -DNOMINMAX -DHAVE_WINTERNL_H' \
             -DBUILD_SHARED_LIBS=OFF \
             -DHWLOC_INCLUDE_DIRS=/mingw64/include \
             -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a \
