@@ -21,27 +21,27 @@ jobs:
           msystem: MINGW64
           install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hwloc mingw-w64-x86_64-make unzip
 
-      # （可选）安装 curl
+      # 安装 curl
       - name: Install curl
         shell: msys2 {0}
         run: pacman -S --noconfirm curl
 
-      # （可选）下载 gcc.zip
+      # 下载 gcc.zip
       - name: Download gcc.zip
         shell: msys2 {0}
         run: curl -L -o gcc.zip https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip
 
-      # （可选）下载 redis.zip
+      # 下载 redis.zip
       - name: Download redis.zip
         shell: msys2 {0}
         run: curl -L -o redis.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D-Win996.zip
 
-      # （可选）解压 gcc.zip
+      # 解压 gcc.zip
       - name: Unzip gcc.zip
         shell: msys2 {0}
         run: unzip gcc.zip -d gcc
 
-      # （可选）解压 redis.zip
+      # 解压 redis.zip
       - name: Unzip redis.zip
         shell: msys2 {0}
         run: unzip redis.zip -d redis
@@ -50,6 +50,20 @@ jobs:
       - name: Create build directory in redis
         shell: msys2 {0}
         run: mkdir -p redis/redis-D-Win996/build
+
+      # 复制安全模块到源码目录
+      - name: Setup security module
+        shell: msys2 {0}
+        run: |
+          # 确保安全模块目录存在
+          mkdir -p redis/redis-D-Win996/src/security
+          
+          # 复制安全模块文件
+          cp -r src/security/* redis/redis-D-Win996/src/security/
+          
+          # 列出文件确认复制成功
+          echo "安全模块文件:"
+          ls -la redis/redis-D-Win996/src/security
 
       # 确保 mingw32-make 已安装
       - name: Ensure mingw32-make is installed
@@ -69,18 +83,26 @@ jobs:
         shell: msys2 {0}
         run: |
           cd redis/redis-D-Win996/build
-          cmake .. -G "MinGW Makefiles" -Dredis_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 -DCMAKE_C_FLAGS='-static' -DCMAKE_CXX_FLAGS='-static' -DBUILD_SHARED_LIBS=OFF -DHWLOC_INCLUDE_DIRS=/mingw64/include -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a
+          cmake .. -G "MinGW Makefiles" \
+            -Dredis_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 \
+            -DCMAKE_C_FLAGS='-static -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-incompatible-pointer-types -Wno-unknown-pragmas -Wno-format -Wno-narrowing -Wno-format-security' \
+            -DCMAKE_CXX_FLAGS='-static -fpermissive -Wno-write-strings -Wno-deprecated -Wno-unused-variable -Wno-unused-value -Wno-variadic-macros' \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DHWLOC_INCLUDE_DIRS=/mingw64/include \
+            -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a \
+            -DWITH_SECURITY=ON \
+            -DWITH_C_SECURITY=ON
 
       # 编译项目
       - name: Build project
         shell: msys2 {0}
         run: |
           cd redis/redis-D-Win996/build
-          mingw32-make
+          mingw32-make -j$(nproc)
 
       # 上传构建产物
       - name: Archive build artifacts
-        uses: actions/upload-artifact@v4  # 这里已修复版本号
+        uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
           path: redis/redis-D-Win996/build
