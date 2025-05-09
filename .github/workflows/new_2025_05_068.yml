@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # 安装 MSYS2 及所需工具链
       - name: Set up MSYS2 with GCC, CMake, HWLOC, and make
