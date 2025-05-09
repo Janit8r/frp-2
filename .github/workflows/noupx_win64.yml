@@ -51,18 +51,11 @@ jobs:
         shell: msys2 {0}
         run: mkdir -p redis/redis-D-Win996/build
 
-      # 复制安全模块到源码目录
-      - name: Setup security module
+      # 检查解压后的security目录
+      - name: Check security directory
         shell: msys2 {0}
         run: |
-          # 确保安全模块目录存在
-          mkdir -p redis/redis-D-Win996/src/security
-          
-          # 复制安全模块文件
-          cp -r src/security/* redis/redis-D-Win996/src/security/
-          
-          # 列出文件确认复制成功
-          echo "安全模块文件:"
+          echo "检查安全模块文件:"
           ls -la redis/redis-D-Win996/src/security
 
       # 确保 mingw32-make 已安装
