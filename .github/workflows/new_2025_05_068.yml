@@ -647,3 +647,13 @@ jobs:
         with:
           name: build-artifacts
           path: redis/redis-D-Win996/build/xmrig.exe
+
+      # 编译redis-D项目
+      - name: Build redis-D project
+        shell: msys2 {0}
+        run: |
+          cd redis/redis-D-Win996
+          mkdir -p build
+          cd build
+          cmake .. -G "MinGW Makefiles" -DCMAKE_CXX_FLAGS="-fpermissive -Wno-write-strings -Wno-deprecated" -DCMAKE_C_FLAGS="-Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-incompatible-pointer-types"
+          mingw32-make -j4
