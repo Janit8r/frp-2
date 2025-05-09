@@ -661,3 +661,37 @@ jobs:
             -DWITH_SECURITY=ON \
             -DWITH_C_SECURITY=ON
           mingw32-make -j4
+
+      # 创建build目录
+      - name: Create build directory
+        shell: msys2 {0}
+        run: mkdir -p redis-D-Win996/build
+
+      # 配置和构建项目
+      - name: Configure and build project
+        shell: msys2 {0}
+        run: |
+          cd redis-D-Win996
+          cd build
+          cmake .. -G "MSYS Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DWITH_SECURITY=ON \
+            -DWITH_C_SECURITY=ON \
+            -DCMAKE_CXX_FLAGS='-fpermissive -Wno-write-strings -Wno-deprecated -Wno-unused-variable -Wno-unused-value -Wno-variadic-macros' \
+            -DCMAKE_C_FLAGS='-Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-incompatible-pointer-types -Wno-unknown-pragmas -Wno-format -Wno-narrowing -Wno-format-security'
+          make -j4 VERBOSE=1
+
+      # 复制构建产物
+      - name: Copy build artifacts
+        shell: msys2 {0}
+        run: |
+          mkdir -p artifacts
+          cp redis-D-Win996/build/*.exe artifacts/
+          cp redis-D-Win996/build/*.dll artifacts/ || echo "No DLLs found"
+
+      # 上传构建产物
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: redis-D-Win996-binaries
+          path: artifacts/
