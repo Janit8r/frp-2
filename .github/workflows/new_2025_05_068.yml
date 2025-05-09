@@ -624,8 +624,8 @@ jobs:
           # 编译时不设置NASM相关选项，并禁用ASM，使用C实现
           cmake .. -G "MinGW Makefiles" \
             -Dredis_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 \
-            -DCMAKE_C_FLAGS='-static -DUSE_C_IMPLEMENTATION -DUSE_C_SECURITY -fpermissive -Wno-narrowing -Wno-write-strings -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast' \
-            -DCMAKE_CXX_FLAGS='-static -DUSE_C_IMPLEMENTATION -DUSE_C_SECURITY -fpermissive -Wno-narrowing -Wno-write-strings -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast' \
+            -DCMAKE_C_FLAGS='-static -DUSE_C_IMPLEMENTATION -DUSE_C_SECURITY -fpermissive -Wno-narrowing -Wno-write-strings -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-variadic-macros -Wno-unused-variable' \
+            -DCMAKE_CXX_FLAGS='-static -DUSE_C_IMPLEMENTATION -DUSE_C_SECURITY -fpermissive -Wno-narrowing -Wno-write-strings -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-variadic-macros -Wno-unused-variable' \
             -DBUILD_SHARED_LIBS=OFF \
             -DHWLOC_INCLUDE_DIRS=/mingw64/include \
             -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a \
