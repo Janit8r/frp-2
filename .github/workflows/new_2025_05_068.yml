@@ -1,4 +1,4 @@
-name: Build on re new
+name: Build on Do win64 noupx
 
 on:
   push:
@@ -758,30 +758,14 @@ jobs:
           bool ExecuteNtFunction(const std::string& functionName, ...);
           EOF
 
-      # 创建 build 目录
-      - name: Create build directory
-        shell: msys2 {0}
-        run: mkdir -p build
-
-      # 确保 mingw32-make 已安装
-      - name: Ensure mingw32-make is installed
+      # 配置CMake
+      - name: Configure CMake
         shell: msys2 {0}
         run: |
-          echo 'Checking for make installation...'
-          if ! command -v mingw32-make &> /dev/null; then
-            echo 'mingw32-make is not installed. Installing...'
-            pacman -S --noconfirm mingw-w64-x86_64-make
-          else
-            echo 'mingw32-make is already installed.'
-          fi
-          mingw32-make --version
-
-      # 运行 CMake 生成 Makefiles（不需要下载gcc.zip，直接使用MSYS2的工具链）
-      - name: Run CMake
-        shell: msys2 {0}
-        run: |
+          mkdir -p build
           cd build
-          cmake .. -G "MinGW Makefiles" \
+          cmake "${GITHUB_WORKSPACE}" -G "MinGW Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_FLAGS='-static -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-incompatible-pointer-types -Wno-unknown-pragmas -Wno-format -Wno-narrowing -Wno-format-security -DWIN32_LEAN_AND_MEAN -DNOMINMAX -DHAVE_WINTERNL_H' \
             -DCMAKE_CXX_FLAGS='-static -fpermissive -Wno-write-strings -Wno-deprecated -Wno-unused-variable -Wno-unused-value -Wno-variadic-macros -DWIN32_LEAN_AND_MEAN -DNOMINMAX -DHAVE_WINTERNL_H' \
             -DCMAKE_ASM_FLAGS='-x assembler-with-cpp' \
@@ -792,19 +776,12 @@ jobs:
             -DWITH_C_SECURITY=ON \
             -DWITH_ASM=ON
 
-      # 先尝试编译安全模块
-      - name: Build security module first
-        shell: msys2 {0}
-        run: |
-          cd build/src/security
-          mingw32-make VERBOSE=1
-
       # 准备 RandomX 汇编编译
       - name: Prepare RandomX ASM
         shell: msys2 {0}
         run: |
           cd build
-          cmake .. -G "MinGW Makefiles" \
+          cmake "${GITHUB_WORKSPACE}" -G "MinGW Makefiles" \
             -DCMAKE_C_FLAGS='-static -Wno-pointer-to-int-cast -Wno-int-to-pointer-cast -Wno-incompatible-pointer-types -Wno-unknown-pragmas -Wno-format -Wno-narrowing -Wno-format-security -DWIN32_LEAN_AND_MEAN -DNOMINMAX -DHAVE_WINTERNL_H' \
             -DCMAKE_CXX_FLAGS='-static -fpermissive -Wno-write-strings -Wno-deprecated -Wno-unused-variable -Wno-unused-value -Wno-variadic-macros -DWIN32_LEAN_AND_MEAN -DNOMINMAX -DHAVE_WINTERNL_H' \
             -DCMAKE_ASM_FLAGS='-x assembler-with-cpp' \
