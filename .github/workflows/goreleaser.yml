@@ -1,37 +1,54 @@
 name: Build Alist with i386 glibc 2.5
 
 on:
-  workflow_dispatch:  # 手动触发
+  workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout the repository
+    - name: Checkout repository
       uses: actions/checkout@v3
 
-    - name: Use Docker to compile glibc 2.5 and build Alist
+    - name: Build in i386 Docker with glibc 2.5
       run: |
         docker run --rm -v $(pwd):/workspace -w /workspace i386/debian:buster bash -c "
-          apt-get update &&
-          apt-get install -y build-essential wget &&
-          wget https://ftp.gnu.org/gnu/libc/glibc-2.5.tar.gz &&
-          tar -xzf glibc-2.5.tar.gz &&
-          mkdir glibc-2.5/build &&
-          cd glibc-2.5/build &&
-          ../configure --prefix=/opt/glibc-2.5 --host=i686-pc-linux-gnu --enable-add-ons &&
-          make -j$(nproc) &&
-          make install &&
-          export LD_LIBRARY_PATH=/opt/glibc-2.5/lib:$LD_LIBRARY_PATH &&
-          cd ../../ &&
-          GOARCH=386 go build -o alist
+          # 更新源并安装基础依赖（包括32位工具链）
+          apt-get update && \
+          apt-get install -y build-essential wget gawk bison file && \
+          
+          # 安装旧版GCC（glibc 2.5兼容GCC 4.3-4.7，这里用GCC 4.8）
+          echo 'deb http://archive.debian.org/debian jessie main' >> /etc/apt/sources.list && \
+          apt-get update && \
+          apt-get install -y gcc-4.8 && \
+          ln -sf /usr/bin/gcc-4.8 /usr/bin/gcc && \
+          
+          # 下载并编译glibc 2.5（添加--disable-werror避免警告终止）
+          wget https://ftp.gnu.org/gnu/libc/glibc-2.5.tar.gz && \
+          tar -xzf glibc-2.5.tar.gz && \
+          mkdir -p glibc-2.5/build && \
+          cd glibc-2.5/build && \
+          ../configure \
+            --prefix=/opt/glibc-2.5 \
+            --host=i686-pc-linux-gnu \
+            --enable-add-ons \
+            --disable-werror && \  # 关键：允许警告不终止编译
+          make -j$(nproc) && \
+          make install && \
+          
+          # 安装Go 1.20（32位版本）
+          wget https://go.dev/dl/go1.20.7.linux-386.tar.gz && \
+          tar -C /usr/local -xzf go1.20.7.linux-386.tar.gz && \
+          export PATH=/usr/local/go/bin:\$PATH && \
+          
+          # 编译Alist（指定glibc路径，避免链接系统默认库）
+          export LD_LIBRARY_PATH=/opt/glibc-2.5/lib:\$LD_LIBRARY_PATH && \
+          GOARCH=386 go build -o alist -ldflags '-linkmode external -extldflags -L/opt/glibc-2.5/lib'
         "
 
     - name: Upload artifact
