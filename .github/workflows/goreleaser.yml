@@ -18,15 +18,19 @@ jobs:
     - name: Build in i386 Docker with glibc 2.5
       run: |
         docker run --rm -v $(pwd):/workspace -w /workspace i386/debian:buster bash -c "
-          # 更新源并安装基础依赖（包括32位工具链）
+          # 更新源并安装基础依赖（32位工具链）
           apt-get update && \
-          apt-get install -y build-essential wget gawk bison file && \
+          apt-get install -y build-essential wget gawk bison file gnupg && \  # 新增gnupg用于导入GPG公钥
           
-          # 安装旧版GCC（glibc 2.5兼容GCC 4.3-4.7，这里用GCC 4.8）
+          # 导入Debian Jessie源的GPG公钥（解决签名验证失败）
+          apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8B48AD6246925553 7638D0442B90D010 CBF8D6FD518E17E1 && \
           echo 'deb http://archive.debian.org/debian jessie main' >> /etc/apt/sources.list && \
           apt-get update && \
-          apt-get install -y gcc-4.8 && \
+          
+          # 安装兼容GCC 4.8（glibc 2.5需要旧版编译器）
+          apt-get install -y gcc-4.8 g++-4.8 && \
           ln -sf /usr/bin/gcc-4.8 /usr/bin/gcc && \
+          ln -sf /usr/bin/g++-4.8 /usr/bin/g++ && \
           
           # 下载并编译glibc 2.5（添加--disable-werror避免警告终止）
           wget https://ftp.gnu.org/gnu/libc/glibc-2.5.tar.gz && \
@@ -37,22 +41,23 @@ jobs:
             --prefix=/opt/glibc-2.5 \
             --host=i686-pc-linux-gnu \
             --enable-add-ons \
-            --disable-werror && \  # 关键：允许警告不终止编译
+            --disable-werror && \
           make -j$(nproc) && \
           make install && \
           
-          # 安装Go 1.20（32位版本）
-          wget https://go.dev/dl/go1.20.7.linux-386.tar.gz && \
+          # 安装Go 1.20（32位版本，直接解压到/usr/local/go）
+          wget -q https://go.dev/dl/go1.20.7.linux-386.tar.gz && \
           tar -C /usr/local -xzf go1.20.7.linux-386.tar.gz && \
-          export PATH=/usr/local/go/bin:\$PATH && \
+          export PATH=/usr/local/go/bin:\$PATH && \  # 显式添加Go到PATH
+          go version && \  # 验证Go安装（失败会直接终止脚本）
           
           # 编译Alist（指定glibc路径，避免链接系统默认库）
           export LD_LIBRARY_PATH=/opt/glibc-2.5/lib:\$LD_LIBRARY_PATH && \
-          GOARCH=386 go build -o alist -ldflags '-linkmode external -extldflags -L/opt/glibc-2.5/lib'
+          GOARCH=386 go build -o alist -ldflags '-linkmode external -extldflags "-L/opt/glibc-2.5/lib -static-libgcc"'
         "
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v3
       with:
         name: alist-i386
         path: ./alist
